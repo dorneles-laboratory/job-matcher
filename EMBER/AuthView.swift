@@ -1,7 +1,6 @@
 import SwiftUI
 
 enum AuthScreenMode {
-    case welcome
     case login
     case register
 }
@@ -9,7 +8,7 @@ enum AuthScreenMode {
 struct AuthView: View {
     @EnvironmentObject var vm: JobTinderViewModel
     
-    @State private var screenMode: AuthScreenMode = .welcome
+    @State private var screenMode: AuthScreenMode = .login
     @State private var selectedRole: UserRole = .candidate
     
     // Alerta de Erro de Login
@@ -65,12 +64,9 @@ struct AuthView: View {
                     .ignoresSafeArea()
                 
                 switch screenMode {
-                case .welcome:
-                    welcomeView
-                        .transition(.asymmetric(insertion: .opacity.combined(with: .move(edge: .leading)), removal: .opacity.combined(with: .move(edge: .leading))))
                 case .login:
                     loginView
-                        .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
+                        .transition(.asymmetric(insertion: .opacity.combined(with: .move(edge: .leading)), removal: .opacity.combined(with: .move(edge: .leading))))
                 case .register:
                     registerWizardView
                         .transition(.asymmetric(insertion: .move(edge: .trailing), removal: .move(edge: .trailing)))
@@ -86,10 +82,10 @@ struct AuthView: View {
         .navigationViewStyle(.stack)
     }
     
-    // MARK: - 1. TELA DE BOAS-VINDAS (WelcomeView)
-    private var welcomeView: some View {
+    // MARK: - 1. TELA INICIAL (Login & Atalho de Cadastro Padrão)
+    private var loginView: some View {
         ScrollView(showsIndicators: false) {
-            VStack(spacing: 24) {
+            VStack(spacing: 20) {
                 // Header Hero
                 VStack(spacing: 12) {
                     ZStack {
@@ -101,18 +97,18 @@ struct AuthView: View {
                                     endPoint: .bottomTrailing
                                 )
                             )
-                            .frame(width: 80, height: 80)
+                            .frame(width: 76, height: 76)
                             .shadow(color: Color.appPurple.opacity(0.35), radius: 12, x: 0, y: 6)
                         
                         Image(systemName: "briefcase.fill")
-                            .font(.system(size: 38))
+                            .font(.system(size: 36))
                             .foregroundColor(.white)
                     }
                     .padding(.top, 24)
                     
                     VStack(spacing: 4) {
                         Text("Job Matcher")
-                            .font(.system(size: 30, weight: .bold))
+                            .font(.system(size: 28, weight: .bold))
                             .foregroundColor(.primary)
                         
                         Text("Conectando Talentos e Oportunidades com Inteligência")
@@ -169,50 +165,68 @@ struct AuthView: View {
                 }
                 .padding(.horizontal)
                 
-                // Botões de Ação
-                VStack(spacing: 12) {
-                    Button(action: {
+                // Campos de Entrada de Login
+                VStack(spacing: 14) {
+                    EmberTextField(
+                        title: selectedRole == .candidate ? "E-MAIL CADASTRADO" : "E-MAIL CORPORATIVO",
+                        placeholder: selectedRole == .candidate ? "exemplo@email.com" : "empresa@corporativo.com",
+                        text: $loginEmail,
+                        icon: "envelope.fill",
+                        isRequired: true,
+                        keyboardType: .emailAddress,
+                        autocapitalization: .never
+                    )
+                    
+                    EmberSecureField(
+                        title: "SUA SENHA",
+                        placeholder: "Digite sua senha de acesso",
+                        text: $loginPassword,
+                        isRequired: true
+                    )
+                }
+                .padding(.horizontal)
+                
+                // Botão de Login
+                let canLogin = !loginEmail.trimmingCharacters(in: .whitespaces).isEmpty &&
+                               !loginPassword.trimmingCharacters(in: .whitespaces).isEmpty
+                
+                Button(action: handleLogin) {
+                    HStack(spacing: 6) {
+                        Text("Entrar")
+                            .bold()
+                        Image(systemName: "arrow.right")
+                            .font(.system(size: 14, weight: .bold))
+                    }
+                    .frame(maxWidth: .infinity)
+                    .padding(.vertical, 15)
+                    .background(canLogin ? Color.appPurple : Color.gray.opacity(0.4))
+                    .foregroundColor(.white)
+                    .cornerRadius(14)
+                    .shadow(color: canLogin ? Color.appPurple.opacity(0.25) : Color.clear, radius: 8, x: 0, y: 4)
+                }
+                .disabled(!canLogin)
+                .padding(.horizontal)
+                .padding(.top, 2)
+                
+                // Rodapé Padrão de Cadastro: "Não tem uma conta? Cadastre-se"
+                HStack(spacing: 6) {
+                    Text("Não tem uma conta?")
+                        .font(.subheadline)
+                        .foregroundColor(.secondary)
+                    
+                    Button("Cadastre-se") {
                         withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
                             currentStep = 1
                             screenMode = .register
                         }
-                    }) {
-                        HStack {
-                            Image(systemName: "person.badge.plus")
-                            Text("Criar Nova Conta")
-                                .bold()
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 16)
-                        .background(Color.appPurple)
-                        .foregroundColor(.white)
-                        .cornerRadius(14)
-                        .shadow(color: Color.appPurple.opacity(0.25), radius: 8, x: 0, y: 4)
                     }
-                    
-                    Button(action: {
-                        withAnimation(.spring(response: 0.35, dampingFraction: 0.8)) {
-                            screenMode = .login
-                        }
-                    }) {
-                        HStack {
-                            Text("Já tenho uma conta • Entrar")
-                                .bold()
-                        }
-                        .frame(maxWidth: .infinity)
-                        .padding(.vertical, 15)
-                        .background(Color(UIColor.secondarySystemGroupedBackground))
-                        .foregroundColor(.primary)
-                        .cornerRadius(14)
-                        .overlay(
-                            RoundedRectangle(cornerRadius: 14)
-                                .stroke(Color(UIColor.systemGray4).opacity(0.6), lineWidth: 1)
-                        )
-                    }
+                    .font(.subheadline)
+                    .bold()
+                    .foregroundColor(.appPurple)
                 }
-                .padding(.horizontal)
+                .padding(.top, 2)
                 
-                // Seção de Demonstração Rápida (Demo)
+                // Divisor e Acesso Rápido Demo
                 VStack(spacing: 10) {
                     HStack {
                         Rectangle()
@@ -227,7 +241,7 @@ struct AuthView: View {
                             .frame(height: 1)
                     }
                     .padding(.horizontal)
-                    .padding(.top, 6)
+                    .padding(.top, 8)
                     
                     VStack(spacing: 8) {
                         Button(action: { quickLoginCandidate() }) {
@@ -275,135 +289,6 @@ struct AuthView: View {
                     .padding(.horizontal)
                 }
                 .padding(.bottom, 24)
-            }
-        }
-    }
-    
-    // MARK: - 2. TELA DE LOGIN (LoginFormView)
-    private var loginView: some View {
-        ScrollView(showsIndicators: false) {
-            VStack(spacing: 22) {
-                // Barra de Topo com Voltar
-                HStack {
-                    Button(action: {
-                        withAnimation(.spring()) { screenMode = .welcome }
-                    }) {
-                        HStack(spacing: 4) {
-                            Image(systemName: "chevron.left")
-                            Text("Início")
-                        }
-                        .font(.subheadline).bold()
-                        .foregroundColor(.appPurple)
-                    }
-                    
-                    Spacer()
-                    
-                    Text("Acessar Conta")
-                        .font(.headline)
-                        .bold()
-                    
-                    Spacer()
-                    
-                    // Spacer compensatório
-                    HStack(spacing: 4) {
-                        Image(systemName: "chevron.left")
-                        Text("Início")
-                    }
-                    .font(.subheadline)
-                    .opacity(0)
-                }
-                .padding(.horizontal)
-                .padding(.top, 12)
-                
-                // Seletor de Tipo de Perfil
-                VStack(alignment: .leading, spacing: 8) {
-                    Text("ENTRANDO COMO:")
-                        .font(.caption2)
-                        .bold()
-                        .foregroundColor(.secondary)
-                    
-                    Picker("Tipo de Perfil", selection: $selectedRole) {
-                        ForEach(UserRole.allCases) { role in
-                            Text(role == .candidate ? "Candidato (CPF)" : "Empresa (CNPJ)").tag(role)
-                        }
-                    }
-                    .pickerStyle(SegmentedPickerStyle())
-                }
-                .padding(.horizontal)
-                
-                // Campos de Entrada
-                VStack(spacing: 16) {
-                    EmberTextField(
-                        title: "E-MAIL CADASTRADO",
-                        placeholder: "exemplo@email.com",
-                        text: $loginEmail,
-                        icon: "envelope.fill",
-                        isRequired: true,
-                        keyboardType: .emailAddress,
-                        autocapitalization: .never
-                    )
-                    
-                    EmberSecureField(
-                        title: "SUA SENHA",
-                        placeholder: "Digite sua senha",
-                        text: $loginPassword,
-                        isRequired: true
-                    )
-                }
-                .padding(.horizontal)
-                
-                // Botão de Login
-                let canLogin = !loginEmail.trimmingCharacters(in: .whitespaces).isEmpty &&
-                               !loginPassword.trimmingCharacters(in: .whitespaces).isEmpty
-                
-                Button(action: handleLogin) {
-                    HStack(spacing: 6) {
-                        Text("Entrar")
-                            .bold()
-                        Image(systemName: "arrow.right")
-                            .font(.system(size: 14, weight: .bold))
-                    }
-                    .frame(maxWidth: .infinity)
-                    .padding(.vertical, 16)
-                    .background(canLogin ? Color.appPurple : Color.gray.opacity(0.4))
-                    .foregroundColor(.white)
-                    .cornerRadius(14)
-                    .shadow(color: canLogin ? Color.appPurple.opacity(0.25) : Color.clear, radius: 8, x: 0, y: 4)
-                }
-                .disabled(!canLogin)
-                .padding(.horizontal)
-                .padding(.top, 6)
-                
-                // Atalho de Preenchimento Rápido
-                Button(action: fillDemoCredentials) {
-                    HStack(spacing: 6) {
-                        Image(systemName: "sparkles")
-                        Text("Preencher dados demo para teste")
-                            .font(.caption)
-                            .bold()
-                    }
-                    .foregroundColor(.appPurple)
-                }
-                .padding(.top, 4)
-                
-                Spacer().frame(height: 20)
-                
-                // Rodapé com link para cadastro
-                HStack(spacing: 4) {
-                    Text("Ainda não possui conta?")
-                        .font(.subheadline)
-                        .foregroundColor(.secondary)
-                    
-                    Button("Cadastre-se") {
-                        withAnimation(.spring()) {
-                            currentStep = 1
-                            screenMode = .register
-                        }
-                    }
-                    .font(.subheadline)
-                    .bold()
-                    .foregroundColor(.appPurple)
-                }
             }
         }
     }
@@ -898,7 +783,7 @@ struct AuthView: View {
         if currentStep > 1 {
             withAnimation(.spring()) { currentStep -= 1 }
         } else {
-            withAnimation(.spring()) { screenMode = .welcome }
+            withAnimation(.spring()) { screenMode = .login }
         }
     }
     

@@ -17,25 +17,31 @@ struct TopBarChatButton: View {
     var body: some View {
         Button(action: action) {
             ZStack(alignment: .topTrailing) {
-                Image(systemName: "bubble.left.and.bubble.right.fill")
-                    .font(.system(size: 17, weight: .semibold))
-                    .foregroundColor(.appPurple)
-                    .padding(8)
-                    .background(Color.appPurple.opacity(0.12))
-                    .clipShape(Circle())
+                Circle()
+                    .fill(Color.appPurple.opacity(0.12))
+                    .frame(width: 36, height: 36)
+                    .overlay(
+                        Image(systemName: "bubble.left.and.bubble.right.fill")
+                            .font(.system(size: 16, weight: .semibold))
+                            .foregroundColor(.appPurple)
+                    )
                 
                 if conversationCount > 0 {
-                    Text("\(conversationCount)")
-                        .font(.system(size: 10, weight: .bold))
+                    Text(conversationCount > 9 ? "9+" : "\(conversationCount)")
+                        .font(.system(size: 9, weight: .bold))
                         .foregroundColor(.white)
-                        .padding(.horizontal, 5)
+                        .padding(.horizontal, 4)
                         .padding(.vertical, 2)
                         .background(Color.red)
                         .clipShape(Capsule())
-                        .offset(x: 6, y: -4)
+                        .offset(x: 2, y: -2)
                 }
             }
+            .frame(width: 40, height: 40)
+            .padding(.trailing, 6)
+            .contentShape(Rectangle())
         }
+        .buttonStyle(.plain)
         .accessibilityLabel("Abrir Mensagens e Chat")
     }
 }

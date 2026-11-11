@@ -314,14 +314,9 @@ struct LikedJobCardView: View {
     }
 }
 
-enum CandidateJobViewMode: String, CaseIterable {
-    case cards = "Match (Cards)"
-    case search = "Explorar (Busca)"
-}
-
 struct CandidateSwipeView: View {
     @EnvironmentObject var vm: JobTinderViewModel
-    @State private var viewMode: CandidateJobViewMode = .cards
+    @State private var isSearching = false
     @State private var showChatSheet = false
     
     // Estados de busca e filtros integrados
@@ -388,26 +383,39 @@ struct CandidateSwipeView: View {
     var body: some View {
         NavigationView {
             VStack(spacing: 0) {
-                // Seletor de Modo: Match (Cards) vs Explorar (Busca)
-                Picker("Visualização", selection: $viewMode) {
-                    ForEach(CandidateJobViewMode.allCases, id: \.self) { mode in
-                        Text(mode.rawValue).tag(mode)
-                    }
-                }
-                .pickerStyle(.segmented)
-                .padding(.horizontal)
-                .padding(.vertical, 8)
-                .background(Color(UIColor.secondarySystemGroupedBackground))
-                
-                if viewMode == .cards {
-                    cardsDeckView
-                } else {
+                if isSearching {
                     searchAndExploreView
+                } else {
+                    cardsDeckView
                 }
             }
-            .navigationTitle(viewMode == .cards ? "Vagas" : "Explorar Vagas")
+            .navigationTitle(isSearching ? "Explorar Vagas" : "Match de Vagas")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
+                // Lupa no superior esquerdo para abrir o search/explorar
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button(action: {
+                        withAnimation(.easeInOut(duration: 0.25)) {
+                            isSearching.toggle()
+                        }
+                    }) {
+                        ZStack {
+                            Circle()
+                                .fill(Color.appPurple.opacity(0.12))
+                                .frame(width: 36, height: 36)
+                            Image(systemName: isSearching ? "xmark" : "magnifyingglass")
+                                .font(.system(size: 16, weight: .semibold))
+                                .foregroundColor(.appPurple)
+                        }
+                        .frame(width: 40, height: 40)
+                        .padding(.leading, 6)
+                        .contentShape(Rectangle())
+                    }
+                    .buttonStyle(.plain)
+                    .accessibilityLabel(isSearching ? "Fechar Busca" : "Buscar Vagas")
+                }
+                
+                // Chat no superior direito
                 ToolbarItem(placement: .navigationBarTrailing) {
                     TopBarChatButton {
                         showChatSheet = true
@@ -457,22 +465,33 @@ struct CandidateSwipeView: View {
     // MARK: - Visão de Busca & Explorar
     private var searchAndExploreView: some View {
         VStack(spacing: 0) {
-            // Campo de Busca Integrado
-            HStack(spacing: 8) {
-                Image(systemName: "magnifyingglass")
-                    .foregroundColor(.secondary)
-                TextField("Buscar por cargo, habilidade ou empresa...", text: $searchText)
-                    .font(.subheadline)
-                if !searchText.isEmpty {
-                    Button(action: { searchText = "" }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .foregroundColor(.secondary)
+            // Campo de Busca Integrado com botão Cancelar
+            HStack(spacing: 10) {
+                HStack(spacing: 8) {
+                    Image(systemName: "magnifyingglass")
+                        .foregroundColor(.secondary)
+                    TextField("Buscar por cargo, habilidade ou empresa...", text: $searchText)
+                        .font(.subheadline)
+                    if !searchText.isEmpty {
+                        Button(action: { searchText = "" }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .foregroundColor(.secondary)
+                        }
                     }
                 }
+                .padding(10)
+                .background(Color(UIColor.secondarySystemGroupedBackground))
+                .cornerRadius(12)
+                
+                Button("Cancelar") {
+                    withAnimation(.easeInOut(duration: 0.25)) {
+                        isSearching = false
+                        searchText = ""
+                    }
+                }
+                .font(.subheadline).bold()
+                .foregroundColor(.appPurple)
             }
-            .padding(10)
-            .background(Color(UIColor.secondarySystemGroupedBackground))
-            .cornerRadius(12)
             .padding(.horizontal)
             .padding(.top, 8)
             .padding(.bottom, 6)
