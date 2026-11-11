@@ -1,7 +1,48 @@
 import SwiftUI
 
+// MARK: - Botão de Chat no Canto Superior Direito do App
+struct TopBarChatButton: View {
+    @EnvironmentObject var vm: JobTinderViewModel
+    var action: () -> Void
+    
+    var conversationCount: Int {
+        guard let user = vm.currentUser else { return 0 }
+        if user.role == .candidate {
+            return vm.conversations.filter { $0.candidateId == user.id }.count
+        } else {
+            return vm.conversations.count
+        }
+    }
+    
+    var body: some View {
+        Button(action: action) {
+            ZStack(alignment: .topTrailing) {
+                Image(systemName: "bubble.left.and.bubble.right.fill")
+                    .font(.system(size: 17, weight: .semibold))
+                    .foregroundColor(.appPurple)
+                    .padding(8)
+                    .background(Color.appPurple.opacity(0.12))
+                    .clipShape(Circle())
+                
+                if conversationCount > 0 {
+                    Text("\(conversationCount)")
+                        .font(.system(size: 10, weight: .bold))
+                        .foregroundColor(.white)
+                        .padding(.horizontal, 5)
+                        .padding(.vertical, 2)
+                        .background(Color.red)
+                        .clipShape(Capsule())
+                        .offset(x: 6, y: -4)
+                }
+            }
+        }
+        .accessibilityLabel("Abrir Mensagens e Chat")
+    }
+}
+
 // MARK: - Lista de Chats (Usada tanto pelo Candidato quanto pela Empresa)
 struct ChatListView: View {
+    @Environment(\.dismiss) var dismiss
     @EnvironmentObject var vm: JobTinderViewModel
     
     var filteredConversations: [MatchConversation] {
@@ -62,6 +103,13 @@ struct ChatListView: View {
                 }
             }
             .navigationTitle("Mensagens & Matches")
+            .toolbar {
+                ToolbarItem(placement: .navigationBarLeading) {
+                    Button("Fechar") {
+                        dismiss()
+                    }
+                }
+            }
         }
     }
 }

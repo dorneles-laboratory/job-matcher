@@ -122,8 +122,30 @@ class JobTinderViewModel: ObservableObject {
             }
         }
         
+        // Passar para o lado REMOVE a vaga da fila de swipe
         jobs.removeAll { $0.id == job.id }
         if jobs.count < 3 { generateRandomJobs(count: 6) }
+    }
+    
+    /// Curte ou descurte uma vaga diretamente pela busca (sem remover da lista de explorar)
+    func likeJobDirectly(job: JobPosting) {
+        guard let candidate = currentUser, candidate.role == .candidate else { return }
+        
+        if candidateLikes.contains(job.id) {
+            removeLikedJob(id: job.id)
+        } else {
+            candidateLikes.insert(job.id)
+            candidateLikesByCandidate[candidate.id, default: []].insert(job.id)
+            if !likedJobsList.contains(where: { $0.id == job.id }) {
+                likedJobsList.append(job)
+            }
+            
+            let companyAlreadyLiked = companyLikes[job.id]?.contains(candidate.id) ?? false
+            if companyAlreadyLiked {
+                createConversationIfNeeded(candidate: candidate, job: job)
+                triggerMatch(candidateName: candidate.name, jobTitle: job.title)
+            }
+        }
     }
     
     func swipeCandidate(candidate: UserProfile, job: JobPosting, liked: Bool) {

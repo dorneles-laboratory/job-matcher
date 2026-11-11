@@ -123,40 +123,48 @@ struct AuthView: View {
                     }
                 }
                 
-                // Destaques / Benefícios Rápidos
+                // Seleção de Perfil (Apenas os Botões)
                 HStack(spacing: 12) {
-                    featurePill(icon: "sparkles", text: "Match Preciso")
-                    featurePill(icon: "bubble.left.and.bubble.right.fill", text: "Chat Direto")
-                    featurePill(icon: "shield.checkerboard", text: "Perfis Verificados")
-                }
-                .padding(.horizontal)
-                
-                // Seletor de Perfil Visual
-                VStack(alignment: .leading, spacing: 12) {
-                    Text("COMO DESEJA COMEÇAR?")
-                        .font(.caption)
-                        .bold()
-                        .foregroundColor(.secondary)
-                        .padding(.horizontal, 4)
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selectedRole = .candidate
+                        }
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "person.fill")
+                            Text("Candidato")
+                                .bold()
+                        }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(selectedRole == .candidate ? Color.appPurple : Color(UIColor.secondarySystemGroupedBackground))
+                        .foregroundColor(selectedRole == .candidate ? .white : .primary)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(selectedRole == .candidate ? Color.appPurple : Color(UIColor.systemGray4).opacity(0.5), lineWidth: 1)
+                        )
+                    }
                     
-                    VStack(spacing: 10) {
-                        RoleSelectionCard(
-                            role: .candidate,
-                            isSelected: selectedRole == .candidate
-                        ) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedRole = .candidate
-                            }
+                    Button(action: {
+                        withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
+                            selectedRole = .company
                         }
-                        
-                        RoleSelectionCard(
-                            role: .company,
-                            isSelected: selectedRole == .company
-                        ) {
-                            withAnimation(.spring(response: 0.3, dampingFraction: 0.7)) {
-                                selectedRole = .company
-                            }
+                    }) {
+                        HStack(spacing: 8) {
+                            Image(systemName: "building.2.fill")
+                            Text("Empresa")
+                                .bold()
                         }
+                        .frame(maxWidth: .infinity)
+                        .padding(.vertical, 14)
+                        .background(selectedRole == .company ? Color.appPurple : Color(UIColor.secondarySystemGroupedBackground))
+                        .foregroundColor(selectedRole == .company ? .white : .primary)
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(selectedRole == .company ? Color.appPurple : Color(UIColor.systemGray4).opacity(0.5), lineWidth: 1)
+                        )
                     }
                 }
                 .padding(.horizontal)
@@ -269,26 +277,6 @@ struct AuthView: View {
                 .padding(.bottom, 24)
             }
         }
-    }
-    
-    private func featurePill(icon: String, text: String) -> some View {
-        HStack(spacing: 6) {
-            Image(systemName: icon)
-                .font(.system(size: 11))
-                .foregroundColor(.appPurple)
-            Text(text)
-                .font(.caption2)
-                .bold()
-                .foregroundColor(.primary)
-        }
-        .padding(.horizontal, 10)
-        .padding(.vertical, 6)
-        .background(Color(UIColor.secondarySystemGroupedBackground))
-        .cornerRadius(20)
-        .overlay(
-            Capsule()
-                .stroke(Color.appPurple.opacity(0.2), lineWidth: 1)
-        )
     }
     
     // MARK: - 2. TELA DE LOGIN (LoginFormView)

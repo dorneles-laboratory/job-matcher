@@ -14,9 +14,6 @@ struct CompanyMainTabView: View {
             AgendaView()
                 .tabItem { Label("Agenda", systemImage: "calendar") }
             
-            ChatListView()
-                .tabItem { Label("Chat", systemImage: "bubble.left.and.bubble.right.fill") }
-            
             CompanyProfileView()
                 .tabItem { Label("Empresa", systemImage: "building.2.fill") }
         }
@@ -52,6 +49,7 @@ struct CompanyCandidateSwipeView: View {
     @State private var selectedFilter: CandidateFilter = .all
     @State private var selectedCandidateForDetail: UserProfile? = nil
     @State private var showCreateJobModal = false
+    @State private var showChatSheet = false
     
     var companyJobs: [JobPosting] {
         let list = vm.jobs.filter { $0.companyId == vm.currentUser?.id }
@@ -169,17 +167,20 @@ struct CompanyCandidateSwipeView: View {
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarTrailing) {
-                    Button(action: {
-                        withAnimation {
-                            vm.generateRandomCandidates(count: 6)
-                        }
-                    }) {
-                        HStack(spacing: 4) {
+                    HStack(spacing: 8) {
+                        Button(action: {
+                            withAnimation {
+                                vm.generateRandomCandidates(count: 6)
+                            }
+                        }) {
                             Image(systemName: "person.crop.circle.badge.plus")
-                            Text("Buscar Mais")
+                                .font(.system(size: 17, weight: .semibold))
+                                .foregroundColor(.appPurple)
                         }
-                        .font(.caption).bold()
-                        .foregroundColor(.appPurple)
+                        
+                        TopBarChatButton {
+                            showChatSheet = true
+                        }
                     }
                 }
             }
@@ -190,6 +191,9 @@ struct CompanyCandidateSwipeView: View {
             }
             .sheet(isPresented: $showCreateJobModal) {
                 CreateJobView()
+            }
+            .sheet(isPresented: $showChatSheet) {
+                ChatListView()
             }
         }
     }
@@ -943,6 +947,28 @@ struct CandidateCardView: View {
         vm.candidateLikesByCandidate[candidate.id]?.contains(targetJob.id) ?? false
     }
     
+    private var likeOpacity: Double {
+        let val = Double((offset.width - 20) / 70)
+        return min(max(val, 0), 1)
+    }
+    
+    private var passOpacity: Double {
+        let val = Double((-offset.width - 20) / 70)
+        return min(max(val, 0), 1)
+    }
+    
+    private var borderStrokeColor: Color {
+        if offset.width > 20 {
+            let op = min(Double(abs(offset.width) / 100), 0.85)
+            return Color.green.opacity(op)
+        } else if offset.width < -20 {
+            let op = min(Double(abs(offset.width) / 100), 0.85)
+            return Color.red.opacity(op)
+        } else {
+            return Color.clear
+        }
+    }
+    
     var body: some View {
         ZStack {
             RoundedRectangle(cornerRadius: 20)
@@ -1075,16 +1101,72 @@ struct CandidateCardView: View {
                 .frame(maxWidth: .infinity)
             }
             .padding(20)
+            
+            // MARK: - RETORNO VISUAL AO ARRASTAR CANDIDATO
+            if offset.width > 20 {
+                VStack {
+                    HStack {
+                        Text(candidateAlreadyLiked ? "MATCH! ✨" : "CURTIR 👍")
+                            .font(.title2).bold()
+                            .foregroundColor(.green)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.green.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.green, lineWidth: 3)
+                            )
+                            .rotationEffect(.degrees(-15))
+                            .opacity(likeOpacity)
+                            .scaleEffect(0.9 + CGFloat(likeOpacity) * 0.2)
+                            .padding(24)
+                        Spacer()
+                    }
+                    Spacer()
+                }
+            }
+            
+            if offset.width < -20 {
+                VStack {
+                    HStack {
+                        Spacer()
+                        Text("DESCARTAR ✕")
+                            .font(.title2).bold()
+                            .foregroundColor(.red)
+                            .padding(.horizontal, 14)
+                            .padding(.vertical, 8)
+                            .background(Color.red.opacity(0.15))
+                            .overlay(
+                                RoundedRectangle(cornerRadius: 12)
+                                    .stroke(Color.red, lineWidth: 3)
+                            )
+                            .rotationEffect(.degrees(15))
+                            .opacity(passOpacity)
+                            .scaleEffect(0.9 + CGFloat(passOpacity) * 0.2)
+                            .padding(24)
+                    }
+                    Spacer()
+                }
+            }
         }
+        .overlay(
+            RoundedRectangle(cornerRadius: 20)
+                .stroke(borderStrokeColor, lineWidth: 3)
+        )
         .padding()
-        .offset(x: offset.width)
+        .offset(x: offset.width, y: offset.height * 0.3)
+        .rotationEffect(.degrees(Double(offset.width / 20)))
         .gesture(
             DragGesture()
                 .onChanged { g in offset = g.translation }
                 .onEnded { _ in
                     if offset.width > 120 { swipe(liked: true) }
                     else if offset.width < -120 { swipe(liked: false) }
-                    else { offset = .zero }
+                    else {
+                        withAnimation(.spring(response: 0.35, dampingFraction: 0.7)) {
+                            offset = .zero
+                        }
+                    }
                 }
         )
     }
@@ -1099,6 +1181,7 @@ struct CandidateCardView: View {
 struct CompanyJobsManagementView: View {
     @EnvironmentObject var vm: JobTinderViewModel
     @State private var showCreateJobModal = false
+    @State private var showChatSheet = false
     
     var body: some View {
         NavigationView {
@@ -1110,12 +1193,25 @@ struct CompanyJobsManagementView: View {
             }
             .navigationTitle("Vagas Publicadas")
             .toolbar {
-                Button(action: { showCreateJobModal = true }) {
-                    Image(systemName: "plus").foregroundColor(.appPurple)
+                ToolbarItem(placement: .navigationBarTrailing) {
+                    HStack(spacing: 8) {
+                        Button(action: { showCreateJobModal = true }) {
+                            Image(systemName: "plus")
+                                .font(.system(size: 17, weight: .bold))
+                                .foregroundColor(.appPurple)
+                        }
+                        
+                        TopBarChatButton {
+                            showChatSheet = true
+                        }
+                    }
                 }
             }
             .sheet(isPresented: $showCreateJobModal) {
                 CreateJobView()
+            }
+            .sheet(isPresented: $showChatSheet) {
+                ChatListView()
             }
         }
     }
