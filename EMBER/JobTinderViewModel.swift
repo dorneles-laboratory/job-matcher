@@ -18,6 +18,7 @@ class JobTinderViewModel: ObservableObject {
     @Published var candidateLikes: Set<UUID> = []
     @Published var candidateLikesByCandidate: [UUID: Set<UUID>] = [:]
     @Published var companyLikes: [UUID: Set<UUID>] = [:]
+    @Published var companyEvaluatedCandidates: [UUID: Set<UUID>] = [:]
     
     @Published var conversations: [MatchConversation] = []
     @Published var activeMatchNotification: (candidateName: String, jobTitle: String)? = nil
@@ -126,6 +127,8 @@ class JobTinderViewModel: ObservableObject {
     }
     
     func swipeCandidate(candidate: UserProfile, job: JobPosting, liked: Bool) {
+        companyEvaluatedCandidates[job.id, default: []].insert(candidate.id)
+        
         if liked {
             companyLikes[job.id, default: []].insert(candidate.id)
             
@@ -138,7 +141,6 @@ class JobTinderViewModel: ObservableObject {
                 triggerMatch(candidateName: candidate.name, jobTitle: job.title)
             }
         }
-        candidates.removeAll { $0.id == candidate.id }
     }
     
     func sendMessage(conversationId: UUID, text: String) {
@@ -758,7 +760,107 @@ class JobTinderViewModel: ObservableObject {
             linkedInURL: "https://linkedin.com/in/gabriel-mendes"
         )
         
-        self.candidates = [mockCandidate, mockCandidate2, mockCandidate3]
+        let mockCandidate4Id = UUID(uuidString: "00000000-0000-0000-0000-000000000004")!
+        let mockCandidate4 = UserProfile(
+            id: mockCandidate4Id,
+            email: "mariana@example.com",
+            password: "123",
+            role: .candidate,
+            name: "Mariana Souza",
+            cpf: "456.789.012-34",
+            phone: "+55 (11) 97123-4455",
+            address: "São Paulo - SP",
+            birthDate: "14/11/1999",
+            gender: .female,
+            disability: .none,
+            bio: "Product Designer focada em Design Systems, pesquisas com usuários e protótipos de alta fidelidade no Figma.",
+            skills: ["Figma", "UI/UX", "Design System", "Prototipagem"],
+            certificates: ["UX Research Master", "Figma Design Certification"],
+            linkedInURL: "https://linkedin.com/in/mariana-souza"
+        )
+        
+        let mockCandidate5Id = UUID(uuidString: "00000000-0000-0000-0000-000000000005")!
+        let mockCandidate5 = UserProfile(
+            id: mockCandidate5Id,
+            email: "lucas@example.com",
+            password: "123",
+            role: .candidate,
+            name: "Lucas Silveira",
+            cpf: "567.890.123-45",
+            phone: "+55 (41) 98877-6655",
+            address: "Curitiba - PR",
+            birthDate: "03/07/1997",
+            gender: .male,
+            disability: .none,
+            bio: "Desenvolvedor Frontend focado em React, TypeScript e Next.js. Obsessão por performance web e interfaces modernas.",
+            skills: ["React", "TypeScript", "JavaScript", "HTML/CSS", "Next.js"],
+            certificates: ["Next.js Specialist", "TypeScript Pro"],
+            linkedInURL: "https://linkedin.com/in/lucas-silveira"
+        )
+        
+        let mockCandidate6Id = UUID(uuidString: "00000000-0000-0000-0000-000000000006")!
+        let mockCandidate6 = UserProfile(
+            id: mockCandidate6Id,
+            email: "rafaela@example.com",
+            password: "123",
+            role: .candidate,
+            name: "Rafaela Castro",
+            cpf: "678.901.234-56",
+            phone: "+55 (11) 99881-2233",
+            address: "São Paulo - SP",
+            birthDate: "25/04/1996",
+            gender: .female,
+            disability: .none,
+            bio: "Especialista em prospecção e vendas B2B (SDR), oratória persuasiva e gestão de CRM para empresas de tecnologia.",
+            skills: ["Comunicação", "Vendas", "Negociação", "CRM"],
+            certificates: ["Inbound Sales HubSpot", "Vendas B2B Avançadas"],
+            linkedInURL: "https://linkedin.com/in/rafaela-castro"
+        )
+        
+        let mockCandidate7Id = UUID(uuidString: "00000000-0000-0000-0000-000000000007")!
+        let mockCandidate7 = UserProfile(
+            id: mockCandidate7Id,
+            email: "felipe@example.com",
+            password: "123",
+            role: .candidate,
+            name: "Felipe Andrade",
+            cpf: "789.012.345-67",
+            phone: "+55 (31) 99234-5566",
+            address: "Belo Horizonte - MG",
+            birthDate: "18/09/2000",
+            gender: .male,
+            disability: .physical,
+            disabilityDetails: "Cadeirante. Ambiente de trabalho e acessibilidade adaptada.",
+            bio: "Analista de Qualidade focado em automação de testes mobile e homologação contínua de releases para App Store.",
+            skills: ["QA", "Testes Automatizados", "Git", "XCTest", "Postman"],
+            certificates: ["Certificação Internacional CTFL QA"],
+            linkedInURL: "https://linkedin.com/in/felipe-andrade"
+        )
+        
+        let mockCandidate8Id = UUID(uuidString: "00000000-0000-0000-0000-000000000008")!
+        let mockCandidate8 = UserProfile(
+            id: mockCandidate8Id,
+            email: "juliana@example.com",
+            password: "123",
+            role: .candidate,
+            name: "Juliana Ribeiro",
+            cpf: "890.123.456-78",
+            phone: "+55 (51) 98112-3344",
+            address: "Porto Alegre - RS",
+            birthDate: "30/01/1995",
+            gender: .female,
+            disability: .none,
+            bio: "Engenheira de Software Backend com ampla experiência em Python, FastAPI, microsserviços e bancos relacionais.",
+            skills: ["Python", "SQL", "Docker", "Git", "Clean Architecture"],
+            certificates: ["Python Backend Specialist", "Docker Certified Associate"],
+            linkedInURL: "https://linkedin.com/in/juliana-ribeiro"
+        )
+        
+        self.candidates = [
+            mockCandidate, mockCandidate2, mockCandidate3,
+            mockCandidate4, mockCandidate5, mockCandidate6,
+            mockCandidate7, mockCandidate8
+        ]
         
         // MARK: - 3. Vagas Simuladas Detalhadas
         let job1 = JobPosting(
@@ -968,6 +1070,21 @@ class JobTinderViewModel: ObservableObject {
         // Gabriel curtiu job4:
         self.candidateLikesByCandidate[mockCandidate3Id] = [job4.id]
         
+        // Mariana curtiu job6 (Studio Pixel - Product Designer):
+        self.candidateLikesByCandidate[mockCandidate4Id] = [job6.id]
+        
+        // Lucas curtiu job3 (Mercado Global - React):
+        self.candidateLikesByCandidate[mockCandidate5Id] = [job3.id]
+        
+        // Rafaela curtiu job8 (Mercado Global - Vendas SDR):
+        self.candidateLikesByCandidate[mockCandidate6Id] = [job8.id]
+        
+        // Felipe curtiu job7 (Cocoa Apps - QA Mobile):
+        self.candidateLikesByCandidate[mockCandidate7Id] = [job7.id]
+        
+        // Juliana curtiu job4 (InovaData - Engenharia de Dados):
+        self.candidateLikesByCandidate[mockCandidate8Id] = [job4.id]
+        
         // MATCH MÚTUO REAL: Cocoa Apps Studio curtiu Thiago na vaga job1.
         // Como Thiago também curtiu job1, ambos demonstraram interesse -> Match mútuo acontece!
         self.companyLikes[job1.id] = [mockCandidateId]
@@ -1046,5 +1163,60 @@ class JobTinderViewModel: ObservableObject {
         self.appointments = [initialAppt1, initialAppt2]
         
         sortJobsByRelevance()
+    }
+    
+    // MARK: - Banco de Talentos e Gestão de Candidatos para Empresas
+    func generateRandomCandidates(count: Int = 6) {
+        let names = ["Camila Duarte", "Renan Oliveira", "Larissa Prado", "Bruno Martins", "Jessica Monteiro", "Eduardo Silveira", "Carolina Mendes", "Rodrigo Azevedo"]
+        let cities = ["São Paulo - SP", "Rio de Janeiro - RJ", "Belo Horizonte - MG", "Curitiba - PR", "Porto Alegre - RS", "Florianópolis - SC", "Recife - PE"]
+        let bios = [
+            "Profissional apaixonado por tecnologia, desenvolvimento ágil e inovação contínua.",
+            "Especialista em criar produtos digitais centrados no usuário com alta qualidade e escalabilidade.",
+            "Focado em entrega contínua, arquiteturas resilientes e código limpo.",
+            "Experiência com liderança técnica, comunicação transparente e colaboração com equipes multifuncionais."
+        ]
+        let skillSets = [
+            ["Swift", "SwiftUI", "iOS", "Git", "Xcode"],
+            ["Python", "SQL", "Pandas", "Machine Learning", "Data Science"],
+            ["React", "TypeScript", "JavaScript", "Next.js", "HTML/CSS"],
+            ["Figma", "UI/UX", "Design System", "Prototipagem"],
+            ["Comunicação", "Vendas", "CRM", "Negociação", "Prospecção"],
+            ["QA", "Testes Automatizados", "Postman", "CI/CD", "Git"]
+        ]
+        
+        var newCandidates: [UserProfile] = []
+        for i in 0..<count {
+            let id = UUID()
+            let name = names[i % names.count]
+            let city = cities[i % cities.count]
+            let skills = skillSets[i % skillSets.count]
+            let bio = bios[i % bios.count]
+            
+            let cand = UserProfile(
+                id: id,
+                email: "talento.\(UUID().uuidString.prefix(5).lowercased())@exemplo.com",
+                password: "123",
+                role: .candidate,
+                name: name,
+                cpf: "\(Int.random(in: 100...999)).\(Int.random(in: 100...999)).\(Int.random(in: 100...999))-\(Int.random(in: 10...99))",
+                phone: "+55 (11) 9\(Int.random(in: 1000...9999))-\(Int.random(in: 1000...9999))",
+                address: city,
+                birthDate: "12/04/199\(Int.random(in: 0...9))",
+                gender: i % 2 == 0 ? .female : .male,
+                disability: i == 2 ? .physical : .none,
+                disabilityDetails: i == 2 ? "Acessibilidade para locomoção e trabalho remoto" : nil,
+                bio: bio,
+                skills: skills,
+                certificates: ["Certificação Especialista"],
+                linkedInURL: "https://linkedin.com",
+                availableShifts: [.flexible, .fullTime]
+            )
+            newCandidates.append(cand)
+        }
+        self.candidates.append(contentsOf: newCandidates)
+    }
+    
+    func resetEvaluatedCandidates(for jobId: UUID) {
+        companyEvaluatedCandidates.removeValue(forKey: jobId)
     }
 }
