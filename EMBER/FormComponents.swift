@@ -83,7 +83,7 @@ enum InputMask {
 // MARK: - Validador Oficial de Documentos e Contatos Brasileiros
 enum DocumentValidator {
     /// Validação matemática oficial do CPF (Receita Federal do Brasil)
-    static func validateCPF(_ value: String) -> (isValid: Bool, message: String?) {
+    nonisolated static func validateCPF(_ value: String) -> (isValid: Bool, message: String?) {
         let numbers = value.filter { $0.isNumber }.compactMap { $0.wholeNumberValue }
         guard !numbers.isEmpty else { return (false, nil) }
         guard numbers.count == 11 else {
