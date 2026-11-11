@@ -643,7 +643,8 @@ struct AuthView: View {
                     icon: "number",
                     isRequired: true,
                     keyboardType: .numberPad,
-                    mask: InputMask.cpf
+                    mask: InputMask.cpf,
+                    validator: DocumentValidator.validateCPF
                 )
                 
                 EmberTextField(
@@ -664,7 +665,8 @@ struct AuthView: View {
                     icon: "phone.fill",
                     isRequired: true,
                     keyboardType: .phonePad,
-                    mask: InputMask.phone
+                    mask: InputMask.phone,
+                    validator: DocumentValidator.validatePhone
                 )
                 
                 EmberTextField(
@@ -752,7 +754,8 @@ struct AuthView: View {
                     icon: "number",
                     isRequired: true,
                     keyboardType: .numberPad,
-                    mask: InputMask.cnpj
+                    mask: InputMask.cnpj,
+                    validator: DocumentValidator.validateCNPJ
                 )
                 
                 EmberTextField(
@@ -771,7 +774,8 @@ struct AuthView: View {
                     text: $phone,
                     icon: "phone.fill",
                     keyboardType: .phonePad,
-                    mask: InputMask.phone
+                    mask: InputMask.phone,
+                    validator: DocumentValidator.validatePhone
                 )
                 
                 EmberTextField(
@@ -876,19 +880,19 @@ struct AuthView: View {
     private var isCurrentStepValid: Bool {
         switch currentStep {
         case 1:
-            return !regEmail.trimmingCharacters(in: .whitespaces).isEmpty &&
-                   regEmail.contains("@") &&
+            return DocumentValidator.validateEmail(regEmail).isValid &&
                    !regPassword.trimmingCharacters(in: .whitespaces).isEmpty &&
                    regPassword == regConfirmPassword
         case 2:
             if selectedRole == .candidate {
                 return !candidateName.trimmingCharacters(in: .whitespaces).isEmpty &&
-                       !cpf.trimmingCharacters(in: .whitespaces).isEmpty &&
-                       !phone.trimmingCharacters(in: .whitespaces).isEmpty &&
+                       DocumentValidator.validateCPF(cpf).isValid &&
+                       DocumentValidator.validatePhone(phone).isValid &&
                        !address.trimmingCharacters(in: .whitespaces).isEmpty
             } else {
                 return !companyName.trimmingCharacters(in: .whitespaces).isEmpty &&
-                       !cnpj.trimmingCharacters(in: .whitespaces).isEmpty
+                       DocumentValidator.validateCNPJ(cnpj).isValid &&
+                       (phone.isEmpty || DocumentValidator.validatePhone(phone).isValid)
             }
         case 3:
             if selectedRole == .candidate {

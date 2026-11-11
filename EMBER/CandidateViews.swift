@@ -350,97 +350,156 @@ struct JobCardView: View {
         return calculateCompatibility(candidateSkills: candidateSkills, certificates: certificates, requiredSkills: job.requiredSkills)
     }
     
+    var coverURL: String {
+        job.coverImageURL ?? GeminiJobService.getCoverImage(for: job.companyName)
+    }
+    
     var body: some View {
         ZStack(alignment: .topLeading) {
-            RoundedRectangle(cornerRadius: 20)
+            RoundedRectangle(cornerRadius: 24)
                 .fill(Color(UIColor.systemBackground))
                 .shadow(color: Color.black.opacity(0.12), radius: 10, x: 0, y: 4)
             
-            VStack(alignment: .leading, spacing: 14) {
-                HStack {
-                    CompatibilityBadge(percentage: compatibility)
-                    Spacer()
-                    Text(job.salaryRange)
-                        .font(.caption).bold()
-                        .padding(6)
-                        .background(Color.appPurple.opacity(0.15))
-                        .foregroundColor(.appPurple)
-                        .cornerRadius(6)
+            VStack(alignment: .leading, spacing: 0) {
+                // Capa da Empresa da Internet (Unsplash CDN)
+                ZStack(alignment: .topTrailing) {
+                    if let url = URL(string: coverURL) {
+                        AsyncImage(url: url) { phase in
+                            switch phase {
+                            case .success(let image):
+                                image
+                                    .resizable()
+                                    .aspectRatio(contentMode: .fill)
+                                    .frame(height: 145)
+                                    .clipped()
+                            case .empty:
+                                Rectangle()
+                                    .fill(Color.appPurple.opacity(0.15))
+                                    .frame(height: 145)
+                                    .overlay(ProgressView())
+                            case .failure:
+                                LinearGradient(
+                                    colors: [Color.appPurple, Color.blue],
+                                    startPoint: .topLeading,
+                                    endPoint: .bottomTrailing
+                                )
+                                .frame(height: 145)
+                            @unknown default:
+                                EmptyView()
+                            }
+                        }
+                        .frame(height: 145)
+                    }
+                    
+                    // Gradiente de transição para o corpo do card
+                    LinearGradient(
+                        colors: [Color.black.opacity(0.35), Color.clear, Color(UIColor.systemBackground)],
+                        startPoint: .top,
+                        endPoint: .bottom
+                    )
+                    .frame(height: 145)
+                    
+                    // Badges flutuantes sobre a capa
+                    HStack {
+                        CompatibilityBadge(percentage: compatibility)
+                        Spacer()
+                        Text(job.salaryRange)
+                            .font(.caption).bold()
+                            .padding(.horizontal, 10).padding(.vertical, 6)
+                            .background(Color.black.opacity(0.7))
+                            .foregroundColor(.white)
+                            .cornerRadius(10)
+                    }
+                    .padding(12)
                 }
-                .padding(.top, 8)
+                .clipShape(RoundedRectangle(cornerRadius: 24))
                 
-                Text(job.title).font(.title2).bold()
-                Text(job.companyName).font(.headline).foregroundColor(.secondary)
-                
-                HStack(spacing: 8) {
-                    HStack(spacing: 4) {
-                        Image(systemName: "mappin.and.ellipse")
-                        Text(job.location)
+                // Informações da Vaga
+                VStack(alignment: .leading, spacing: 10) {
+                    VStack(alignment: .leading, spacing: 3) {
+                        Text(job.title)
+                            .font(.title3).bold()
+                            .lineLimit(2)
+                        
+                        Text(job.companyName)
+                            .font(.subheadline)
+                            .foregroundColor(.appPurple)
+                            .bold()
                     }
                     
-                    Text("•")
-                    
-                    HStack(spacing: 4) {
-                        Image(systemName: job.shift.icon)
-                        Text(job.shift.shortName)
-                    }
-                    .font(.caption).bold()
-                    .padding(.horizontal, 6).padding(.vertical, 2)
-                    .background(Color.blue.opacity(0.12))
-                    .foregroundColor(.blue)
-                    .cornerRadius(6)
-                    
-                    if let user = vm.currentUser, vm.hasShiftConflict(candidate: user, job: job) {
-                        HStack(spacing: 3) {
-                            Image(systemName: "exclamationmark.triangle.fill")
-                            Text("Turno Divergente")
+                    HStack(spacing: 8) {
+                        HStack(spacing: 4) {
+                            Image(systemName: "mappin.and.ellipse")
+                            Text(job.location)
+                        }
+                        
+                        Text("•")
+                        
+                        HStack(spacing: 4) {
+                            Image(systemName: job.shift.icon)
+                            Text(job.shift.shortName)
                         }
                         .font(.caption2).bold()
                         .padding(.horizontal, 6).padding(.vertical, 2)
-                        .background(Color.orange.opacity(0.15))
-                        .foregroundColor(.orange)
+                        .background(Color.blue.opacity(0.12))
+                        .foregroundColor(.blue)
                         .cornerRadius(6)
-                    }
-                }
-                .font(.subheadline).foregroundColor(.gray)
-                
-                Divider()
-                
-                Text("Requisitos:").font(.subheadline).bold()
-                
-                ScrollView(.horizontal, showsIndicators: false) {
-                    HStack {
-                        ForEach(job.requiredSkills, id: \.self) { skill in
-                            Text(skill)
-                                .font(.caption)
-                                .padding(.horizontal, 10).padding(.vertical, 5)
-                                .background(Color.appPurple.opacity(0.1))
-                                .foregroundColor(.appPurple)
-                                .cornerRadius(8)
+                        
+                        if let user = vm.currentUser, vm.hasShiftConflict(candidate: user, job: job) {
+                            HStack(spacing: 3) {
+                                Image(systemName: "exclamationmark.triangle.fill")
+                                Text("Turno Divergente")
+                            }
+                            .font(.caption2).bold()
+                            .padding(.horizontal, 6).padding(.vertical, 2)
+                            .background(Color.orange.opacity(0.15))
+                            .foregroundColor(.orange)
+                            .cornerRadius(6)
                         }
                     }
-                }
-                
-                Text(job.description)
-                    .font(.body).foregroundColor(.secondary).lineLimit(4)
-                
-                Spacer()
-                
-                HStack(spacing: 40) {
-                    Button(action: { swipe(liked: false) }) {
-                        Image(systemName: "xmark.circle.fill")
-                            .resizable().frame(width: 60, height: 60).foregroundColor(.red)
+                    .font(.caption).foregroundColor(.gray)
+                    
+                    Divider()
+                    
+                    Text("Requisitos:").font(.caption).bold().foregroundColor(.secondary)
+                    
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack {
+                            ForEach(job.requiredSkills, id: \.self) { skill in
+                                Text(skill)
+                                    .font(.caption2).bold()
+                                    .padding(.horizontal, 8).padding(.vertical, 4)
+                                    .background(Color.appPurple.opacity(0.1))
+                                    .foregroundColor(.appPurple)
+                                    .cornerRadius(6)
+                            }
+                        }
                     }
                     
-                    Button(action: { swipe(liked: true) }) {
-                        Image(systemName: "heart.circle.fill")
-                            .resizable().frame(width: 60, height: 60).foregroundColor(.appPurple)
+                    Text(job.description)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                        .lineLimit(3)
+                    
+                    Spacer()
+                    
+                    HStack(spacing: 40) {
+                        Button(action: { swipe(liked: false) }) {
+                            Image(systemName: "xmark.circle.fill")
+                                .resizable().frame(width: 58, height: 58).foregroundColor(.red)
+                        }
+                        
+                        Button(action: { swipe(liked: true) }) {
+                            Image(systemName: "heart.circle.fill")
+                                .resizable().frame(width: 58, height: 58).foregroundColor(.appPurple)
+                        }
                     }
+                    .frame(maxWidth: .infinity)
+                    .padding(.bottom, 8)
                 }
-                .frame(maxWidth: .infinity)
-                .padding(.bottom, 10)
+                .padding(.horizontal, 16)
+                .padding(.top, 8)
             }
-            .padding(20)
         }
         .padding()
         .offset(x: offset.width, y: offset.height * 0.4)
@@ -463,120 +522,343 @@ struct JobCardView: View {
     }
 }
 
+// MARK: - Aba Explorar com Filtros de Interesses e IA Gemini
 struct ExploreJobsView: View {
     @EnvironmentObject var vm: JobTinderViewModel
     @State private var searchText = ""
+    @State private var selectedCategory: String = "Todas"
+    @State private var selectedModality: String = "Todas"
+    @State private var selectedShift: String = "Todos"
+    @State private var showAIGeneratorSuccessAlert: Bool = false
+    
+    let categories = [
+        "Todas", "iOS / Mobile", "Web / Frontend", "Dados & IA",
+        "Design UI/UX", "Cloud & DevOps", "Vendas / Negócios"
+    ]
+    
+    let modalities = ["Todas", "Remoto", "Híbrido", "Presencial"]
     
     var filteredJobs: [JobPosting] {
-        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines)
-        if query.isEmpty {
-            return vm.jobs
-        } else {
-            return vm.jobs.filter {
-                $0.title.localizedCaseInsensitiveContains(query) ||
-                $0.companyName.localizedCaseInsensitiveContains(query)
+        let query = searchText.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+        
+        return vm.jobs.filter { job in
+            // Filtro por termo de busca
+            let matchesQuery: Bool
+            if query.isEmpty {
+                matchesQuery = true
+            } else {
+                matchesQuery = job.title.localizedCaseInsensitiveContains(query) ||
+                               job.companyName.localizedCaseInsensitiveContains(query) ||
+                               job.requiredSkills.contains { $0.localizedCaseInsensitiveContains(query) }
             }
+            
+            // Filtro por Categoria / Área
+            let matchesCategory: Bool
+            switch selectedCategory {
+            case "iOS / Mobile":
+                matchesCategory = job.title.localizedCaseInsensitiveContains("iOS") ||
+                                  job.title.localizedCaseInsensitiveContains("Mobile") ||
+                                  job.requiredSkills.contains { $0.caseInsensitiveCompare("Swift") == .orderedSame }
+            case "Web / Frontend":
+                matchesCategory = job.title.localizedCaseInsensitiveContains("Frontend") ||
+                                  job.title.localizedCaseInsensitiveContains("React")
+            case "Dados & IA":
+                matchesCategory = job.title.localizedCaseInsensitiveContains("Dados") ||
+                                  job.title.localizedCaseInsensitiveContains("Machine Learning") ||
+                                  job.title.localizedCaseInsensitiveContains("IA")
+            case "Design UI/UX":
+                matchesCategory = job.title.localizedCaseInsensitiveContains("Design") ||
+                                  job.requiredSkills.contains { $0.caseInsensitiveCompare("Figma") == .orderedSame }
+            case "Cloud & DevOps":
+                matchesCategory = job.title.localizedCaseInsensitiveContains("Cloud") ||
+                                  job.title.localizedCaseInsensitiveContains("DevOps")
+            case "Vendas / Negócios":
+                matchesCategory = job.title.localizedCaseInsensitiveContains("Vendas") ||
+                                  job.title.localizedCaseInsensitiveContains("SDR") ||
+                                  job.title.localizedCaseInsensitiveContains("Comercial")
+            default:
+                matchesCategory = true
+            }
+            
+            // Filtro por Modalidade
+            let matchesModality = (selectedModality == "Todas") || (job.modality.caseInsensitiveCompare(selectedModality) == .orderedSame)
+            
+            // Filtro por Turno
+            let matchesShift = (selectedShift == "Todos") || (job.shift.shortName.caseInsensitiveCompare(selectedShift) == .orderedSame)
+            
+            return matchesQuery && matchesCategory && matchesModality && matchesShift
         }
     }
     
     var body: some View {
         NavigationView {
-            Group {
+            VStack(spacing: 0) {
+                // Barra de Filtros de Interesses (Pills Horizontais)
+                VStack(spacing: 8) {
+                    // Chips de Categorias
+                    ScrollView(.horizontal, showsIndicators: false) {
+                        HStack(spacing: 8) {
+                            ForEach(categories, id: \.self) { cat in
+                                Button {
+                                    withAnimation(.easeInOut(duration: 0.15)) {
+                                        selectedCategory = cat
+                                    }
+                                } label: {
+                                    Text(cat)
+                                        .font(.caption).bold()
+                                        .padding(.horizontal, 12).padding(.vertical, 7)
+                                        .background(selectedCategory == cat ? Color.appPurple : Color(UIColor.systemGray5))
+                                        .foregroundColor(selectedCategory == cat ? .white : .primary)
+                                        .cornerRadius(14)
+                                }
+                                .buttonStyle(.plain)
+                            }
+                        }
+                        .padding(.horizontal)
+                    }
+                    
+                    // Filtro rápido de Modalidade
+                    HStack(spacing: 8) {
+                        ForEach(modalities, id: \.self) { mod in
+                            Button {
+                                withAnimation { selectedModality = mod }
+                            } label: {
+                                Text(mod)
+                                    .font(.caption2).bold()
+                                    .padding(.horizontal, 10).padding(.vertical, 4)
+                                    .background(selectedModality == mod ? Color.blue : Color(UIColor.secondarySystemBackground))
+                                    .foregroundColor(selectedModality == mod ? .white : .secondary)
+                                    .cornerRadius(8)
+                            }
+                            .buttonStyle(.plain)
+                        }
+                        
+                        Spacer()
+                        
+                        // Botão Gemini IA
+                        Button {
+                            Task {
+                                await vm.fetchMarketJobsWithGemini(category: selectedCategory, query: searchText)
+                                showAIGeneratorSuccessAlert = true
+                            }
+                        } label: {
+                            HStack(spacing: 4) {
+                                if vm.isGeneratingAIJobs {
+                                    ProgressView()
+                                        .scaleEffect(0.7)
+                                } else {
+                                    Image(systemName: "sparkles")
+                                }
+                                Text("Vagas IA (Gemini)")
+                                    .font(.caption2).bold()
+                            }
+                            .padding(.horizontal, 10).padding(.vertical, 5)
+                            .background(Color.appPurple.opacity(0.18))
+                            .foregroundColor(.appPurple)
+                            .cornerRadius(8)
+                        }
+                        .disabled(vm.isGeneratingAIJobs)
+                    }
+                    .padding(.horizontal)
+                    .padding(.bottom, 6)
+                }
+                .padding(.top, 6)
+                .background(Color(UIColor.secondarySystemGroupedBackground))
+                
+                Divider()
+                
+                // Lista de Vagas Filtradas com Capas Corporativas
                 if filteredJobs.isEmpty {
-                    VStack(spacing: 14) {
-                        Image(systemName: "magnifyingglass")
-                            .font(.system(size: 55))
+                    VStack(spacing: 16) {
+                        Spacer()
+                        Image(systemName: "sparkle.magnifyingglass")
+                            .font(.system(size: 60))
                             .foregroundColor(.appSilver)
-                        Text("Nenhuma vaga encontrada")
+                        
+                        Text("Nenhuma vaga nesta categoria")
                             .font(.headline)
-                        Text("Não encontramos vagas com o termo \"\(searchText)\". Tente outros termos como iOS, Frontend, Python, Dados ou Design.")
+                        
+                        Text("Não encontramos vagas para o filtro selecionado. Use o botão 'Vagas IA (Gemini)' acima para buscar novas vagas de mercado em tempo real!")
                             .font(.subheadline)
                             .foregroundColor(.secondary)
                             .multilineTextAlignment(.center)
                             .padding(.horizontal, 30)
+                        
+                        Button {
+                            Task {
+                                await vm.fetchMarketJobsWithGemini(category: selectedCategory, query: searchText)
+                                showAIGeneratorSuccessAlert = true
+                            }
+                        } label: {
+                            HStack(spacing: 6) {
+                                Image(systemName: "sparkles")
+                                Text("Buscar Vagas com Gemini AI")
+                            }
+                            .font(.subheadline).bold()
+                            .padding(.horizontal, 20).padding(.vertical, 10)
+                            .background(Color.appPurple)
+                            .foregroundColor(.white)
+                            .cornerRadius(12)
+                        }
+                        Spacer()
                     }
                     .padding()
                 } else {
                     List(filteredJobs) { job in
-                        let compat = calculateCompatibility(
-                            candidateSkills: vm.currentUser?.skills ?? [],
-                            certificates: vm.currentUser?.certificates ?? [],
-                            requiredSkills: job.requiredSkills
-                        )
-                        let isLiked = vm.candidateLikes.contains(job.id)
-                        
-                        VStack(alignment: .leading, spacing: 10) {
-                            HStack {
-                                CompatibilityBadge(percentage: compat)
-                                
-                                HStack(spacing: 4) {
-                                    Image(systemName: modalityIcon(job.modality))
-                                    Text(job.modality)
-                                }
-                                .font(.caption2).bold()
-                                .padding(.horizontal, 8).padding(.vertical, 4)
-                                .background(Color.appPurple.opacity(0.12))
-                                .foregroundColor(.appPurple)
-                                .cornerRadius(6)
-                                
-                                Spacer()
-                                
-                                if isLiked {
-                                    Image(systemName: "heart.fill")
-                                        .foregroundColor(.red)
-                                }
-                            }
-                            
-                            VStack(alignment: .leading, spacing: 3) {
-                                Text(job.title)
-                                    .font(.headline)
-                                    .bold()
-                                    .foregroundColor(.primary)
-                                
-                                HStack(spacing: 4) {
-                                    Text(job.companyName)
-                                        .font(.subheadline)
-                                        .foregroundColor(.secondary)
-                                    Text("•")
-                                        .foregroundColor(.secondary)
-                                    Text(job.location)
-                                        .font(.caption)
-                                        .foregroundColor(.secondary)
-                                }
-                            }
-                            
-                            HStack {
-                                Text(job.salaryRange)
-                                    .font(.caption).bold()
-                                    .padding(.horizontal, 8).padding(.vertical, 4)
-                                    .background(Color(UIColor.systemGray6))
-                                    .cornerRadius(6)
-                            }
-                            
-                            Text(job.description)
-                                .font(.caption)
-                                .foregroundColor(.secondary)
-                                .lineLimit(2)
-                        }
-                        .padding(.vertical, 6)
+                        ExploreJobCardRow(job: job)
+                            .listRowInsets(EdgeInsets(top: 8, leading: 14, bottom: 8, trailing: 14))
+                            .listRowSeparator(.hidden)
                     }
+                    .listStyle(.plain)
                 }
             }
             .navigationTitle("Explorar Vagas")
             .searchable(
                 text: $searchText,
                 placement: .navigationBarDrawer(displayMode: .always),
-                prompt: "Pesquisar por nome da vaga (ex: iOS, Frontend...)"
+                prompt: "Buscar por cargo, habilidade ou empresa..."
             )
+            .alert("Vagas de Mercado Atualizadas!", isPresented: $showAIGeneratorSuccessAlert) {
+                Button("OK", role: .cancel) { }
+            } message: {
+                Text("A inteligência artificial do Gemini atualizou o catálogo com vagas reais e recentes do mercado brasileiro.")
+            }
         }
     }
+}
+
+// MARK: - Linha do Card de Vaga com Capa da Empresa na Aba Explorar
+struct ExploreJobCardRow: View {
+    @EnvironmentObject var vm: JobTinderViewModel
+    let job: JobPosting
     
-    private func modalityIcon(_ modality: String) -> String {
-        switch modality.lowercased() {
-        case "remoto": return "laptopcomputer"
-        case "presencial": return "building.2"
-        default: return "arrow.triangle.swap"
+    var compatibility: Int {
+        let candidateSkills = vm.currentUser?.skills ?? []
+        let certificates = vm.currentUser?.certificates ?? []
+        return calculateCompatibility(candidateSkills: candidateSkills, certificates: certificates, requiredSkills: job.requiredSkills)
+    }
+    
+    var isLiked: Bool {
+        vm.candidateLikes.contains(job.id)
+    }
+    
+    var coverURL: String {
+        job.coverImageURL ?? GeminiJobService.getCoverImage(for: job.companyName)
+    }
+    
+    var body: some View {
+        VStack(alignment: .leading, spacing: 0) {
+            // Imagem de Capa Corporativa da Empresa
+            ZStack(alignment: .topTrailing) {
+                if let url = URL(string: coverURL) {
+                    AsyncImage(url: url) { phase in
+                        switch phase {
+                        case .success(let image):
+                            image
+                                .resizable()
+                                .aspectRatio(contentMode: .fill)
+                                .frame(height: 90)
+                                .clipped()
+                        case .empty:
+                            Rectangle()
+                                .fill(Color.appPurple.opacity(0.12))
+                                .frame(height: 90)
+                        case .failure:
+                            LinearGradient(
+                                colors: [Color.appPurple.opacity(0.7), Color.blue.opacity(0.5)],
+                                startPoint: .topLeading,
+                                endPoint: .bottomTrailing
+                            )
+                            .frame(height: 90)
+                        @unknown default:
+                            EmptyView()
+                        }
+                    }
+                    .frame(height: 90)
+                }
+                
+                // Badges sobre a capa
+                HStack {
+                    CompatibilityBadge(percentage: compatibility)
+                    Spacer()
+                    Button {
+                        withAnimation {
+                            if isLiked {
+                                vm.removeLikedJob(id: job.id)
+                            } else {
+                                vm.swipeJob(job: job, liked: true)
+                            }
+                        }
+                    } label: {
+                        Image(systemName: isLiked ? "heart.fill" : "heart")
+                            .font(.system(size: 18))
+                            .foregroundColor(isLiked ? .red : .white)
+                            .padding(6)
+                            .background(Color.black.opacity(0.5))
+                            .clipShape(Circle())
+                    }
+                }
+                .padding(8)
+            }
+            .clipShape(RoundedRectangle(cornerRadius: 14))
+            
+            // Corpo da Vaga
+            VStack(alignment: .leading, spacing: 6) {
+                Text(job.title)
+                    .font(.headline)
+                    .bold()
+                    .foregroundColor(.primary)
+                
+                HStack(spacing: 6) {
+                    Text(job.companyName)
+                        .font(.subheadline)
+                        .bold()
+                        .foregroundColor(.appPurple)
+                    
+                    Text("•")
+                        .foregroundColor(.secondary)
+                    
+                    Text(job.location)
+                        .font(.caption)
+                        .foregroundColor(.secondary)
+                }
+                
+                HStack(spacing: 6) {
+                    Text(job.salaryRange)
+                        .font(.caption2).bold()
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .background(Color(UIColor.systemGray5))
+                        .cornerRadius(6)
+                    
+                    HStack(spacing: 3) {
+                        Image(systemName: job.shift.icon)
+                        Text(job.shift.shortName)
+                    }
+                    .font(.caption2).bold()
+                    .padding(.horizontal, 6).padding(.vertical, 3)
+                    .background(Color.blue.opacity(0.12))
+                    .foregroundColor(.blue)
+                    .cornerRadius(6)
+                    
+                    Text(job.modality)
+                        .font(.caption2).bold()
+                        .padding(.horizontal, 6).padding(.vertical, 3)
+                        .background(Color.green.opacity(0.12))
+                        .foregroundColor(.green)
+                        .cornerRadius(6)
+                }
+                
+                Text(job.description)
+                    .font(.caption)
+                    .foregroundColor(.secondary)
+                    .lineLimit(2)
+                    .padding(.top, 2)
+            }
+            .padding(12)
         }
+        .background(Color(UIColor.secondarySystemGroupedBackground))
+        .cornerRadius(14)
+        .shadow(color: Color.black.opacity(0.06), radius: 6, x: 0, y: 2)
     }
 }
 

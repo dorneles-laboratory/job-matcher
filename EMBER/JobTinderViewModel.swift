@@ -22,6 +22,8 @@ class JobTinderViewModel: ObservableObject {
     @Published var conversations: [MatchConversation] = []
     @Published var activeMatchNotification: (candidateName: String, jobTitle: String)? = nil
     @Published var appointments: [InterviewAppointment] = []
+    @Published var isGeneratingAIJobs: Bool = false
+    @Published var geminiAPIKey: String = ""
     
     init() {
         loadMockData()
@@ -417,6 +419,25 @@ class JobTinderViewModel: ObservableObject {
         }
     }
     
+    // MARK: - Integração Gemini AI & Vagas de Mercado em Tempo Real
+    func fetchMarketJobsWithGemini(category: String = "Todas", query: String = "") async {
+        isGeneratingAIJobs = true
+        defer { isGeneratingAIJobs = false }
+        
+        let newMarketJobs = await GeminiJobService.shared.fetchRealMarketJobs(
+            query: query,
+            category: category,
+            apiKey: geminiAPIKey.isEmpty ? nil : geminiAPIKey
+        )
+        
+        for newJob in newMarketJobs {
+            if !jobs.contains(where: { $0.title == newJob.title && $0.companyName == newJob.companyName }) {
+                jobs.append(newJob)
+            }
+        }
+        sortJobsByRelevance()
+    }
+    
     func addJob(
         title: String,
         location: String,
@@ -756,7 +777,8 @@ class JobTinderViewModel: ObservableObject {
                 "Versionamento de código utilizando Git e GitHub",
                 "Certificados na área ou apps publicados na App Store são diferenciais"
             ],
-            salaryRange: "R$ 6.500 - R$ 9.000 (CLT)"
+            salaryRange: "R$ 6.500 - R$ 9.000 (CLT)",
+            coverImageURL: GeminiJobService.getCoverImage(for: "Cocoa Apps Studio")
         )
         
         let job2 = JobPosting(
@@ -775,7 +797,8 @@ class JobTinderViewModel: ObservableObject {
                 "Atenção rigorosa a acessibilidade (VoiceOver, Dynamic Type)",
                 "Graduação em Ciência da Computação ou experiência equivalente"
             ],
-            salaryRange: "R$ 13.000 - R$ 17.500 (CLT)"
+            salaryRange: "R$ 13.000 - R$ 17.500 (CLT)",
+            coverImageURL: GeminiJobService.getCoverImage(for: "NuTech Solutions")
         )
         
         let job3 = JobPosting(
@@ -793,7 +816,8 @@ class JobTinderViewModel: ObservableObject {
                 "Foco em performance web (Core Web Vitals) e responsividade",
                 "Vivência em times ágeis usando Scrum ou Kanban"
             ],
-            salaryRange: "R$ 6.000 - R$ 8.500 (CLT)"
+            salaryRange: "R$ 6.000 - R$ 8.500 (CLT)",
+            coverImageURL: GeminiJobService.getCoverImage(for: "Mercado Global")
         )
         
         let job4 = JobPosting(
@@ -811,7 +835,8 @@ class JobTinderViewModel: ObservableObject {
                 "Conhecimento de arquiteturas de dados distribuídos (Spark ou Kafka)",
                 "Certificações em Cloud ou Data Science valorizadas"
             ],
-            salaryRange: "R$ 8.500 - R$ 12.000 (PJ)"
+            salaryRange: "R$ 8.500 - R$ 12.000 (PJ)",
+            coverImageURL: GeminiJobService.getCoverImage(for: "InovaData AI")
         )
         
         let job5 = JobPosting(
@@ -829,7 +854,8 @@ class JobTinderViewModel: ObservableObject {
                 "Gerenciamento de containers e esteiras de entrega contínua",
                 "Conhecimento em monitoramento com Prometheus e Grafana"
             ],
-            salaryRange: "R$ 9.000 - R$ 13.500 (CLT)"
+            salaryRange: "R$ 9.000 - R$ 13.500 (CLT)",
+            coverImageURL: GeminiJobService.getCoverImage(for: "CloudScale")
         )
         
         let job6 = JobPosting(
@@ -847,7 +873,8 @@ class JobTinderViewModel: ObservableObject {
                 "Experiência na realização de testes de usabilidade e entrevistas",
                 "Capacidade de colaborar ativamente com desenvolvedores frontend e mobile"
             ],
-            salaryRange: "R$ 6.000 - R$ 8.500 (CLT)"
+            salaryRange: "R$ 6.000 - R$ 8.500 (CLT)",
+            coverImageURL: GeminiJobService.getCoverImage(for: "Studio Pixel")
         )
         
         let job7 = JobPosting(
@@ -865,7 +892,8 @@ class JobTinderViewModel: ObservableObject {
                 "Familiaridade com o ciclo de validação do TestFlight e App Store Connect",
                 "Boa escrita técnica para reporte de bugs e evidências"
             ],
-            salaryRange: "R$ 5.000 - R$ 7.200 (CLT)"
+            salaryRange: "R$ 5.000 - R$ 7.200 (CLT)",
+            coverImageURL: GeminiJobService.getCoverImage(for: "Cocoa Apps Studio")
         )
         
         let job8 = JobPosting(
@@ -883,7 +911,8 @@ class JobTinderViewModel: ObservableObject {
                 "Familiaridade com ferramentas de CRM (HubSpot, Salesforce)",
                 "Resiliência, proatividade e foco no atingimento de metas"
             ],
-            salaryRange: "R$ 3.500 + Comissão (Média R$ 7.000)"
+            salaryRange: "R$ 3.500 + Comissão (Média R$ 7.000)",
+            coverImageURL: GeminiJobService.getCoverImage(for: "Mercado Global")
         )
         
         let job9 = JobPosting(
@@ -901,7 +930,8 @@ class JobTinderViewModel: ObservableObject {
                 "Interesse genuíno em Swift e ecossistema Apple",
                 "Disponibilidade para estagiar 30h semanais"
             ],
-            salaryRange: "R$ 2.400 (Bolsa) + VR + VT + Seguro"
+            salaryRange: "R$ 2.400 (Bolsa) + VR + VT + Seguro",
+            coverImageURL: GeminiJobService.getCoverImage(for: "NuTech Solutions")
         )
         
         let job10 = JobPosting(
@@ -919,7 +949,8 @@ class JobTinderViewModel: ObservableObject {
                 "Capacidade de organização e pontualidade",
                 "Facilidade para lidar com prazos e rotinas administrativas"
             ],
-            salaryRange: "R$ 2.200 - R$ 2.800 (CLT) + Benefícios"
+            salaryRange: "R$ 2.200 - R$ 2.800 (CLT) + Benefícios",
+            coverImageURL: GeminiJobService.getCoverImage(for: "CloudScale")
         )
         
         self.jobs = [job1, job2, job3, job4, job5, job6, job7, job8, job9, job10]

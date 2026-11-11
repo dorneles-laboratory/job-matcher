@@ -80,6 +80,130 @@ enum InputMask {
     }
 }
 
+// MARK: - Validador Oficial de Documentos e Contatos Brasileiros
+enum DocumentValidator {
+    /// Validação matemática oficial do CPF (Receita Federal do Brasil)
+    static func validateCPF(_ value: String) -> (isValid: Bool, message: String?) {
+        let numbers = value.filter { $0.isNumber }.compactMap { $0.wholeNumberValue }
+        guard !numbers.isEmpty else { return (false, nil) }
+        guard numbers.count == 11 else {
+            return (false, "CPF incompleto (digite 11 dígitos)")
+        }
+        
+        // Bloqueia CPFs com dígitos repetidos conhecidos (ex: 111.111.111-11)
+        if Set(numbers).count == 1 {
+            return (false, "CPF inválido (dígitos repetidos)")
+        }
+        
+        // Cálculo do 1º dígito verificador
+        let sum1 = (0..<9).reduce(0) { $0 + numbers[$1] * (10 - $1) }
+        let remainder1 = (sum1 * 10) % 11
+        let digit1 = (remainder1 == 10 || remainder1 == 11) ? 0 : remainder1
+        if digit1 != numbers[9] {
+            return (false, "CPF inválido (dígito verificador incorreto)")
+        }
+        
+        // Cálculo do 2º dígito verificador
+        let sum2 = (0..<10).reduce(0) { $0 + numbers[$1] * (11 - $1) }
+        let remainder2 = (sum2 * 10) % 11
+        let digit2 = (remainder2 == 10 || remainder2 == 11) ? 0 : remainder2
+        if digit2 != numbers[10] {
+            return (false, "CPF inválido (dígito verificador incorreto)")
+        }
+        
+        return (true, "CPF autêntico e válido")
+    }
+    
+    /// Validação matemática oficial do CNPJ (Receita Federal do Brasil)
+    static func validateCNPJ(_ value: String) -> (isValid: Bool, message: String?) {
+        let numbers = value.filter { $0.isNumber }.compactMap { $0.wholeNumberValue }
+        guard !numbers.isEmpty else { return (false, nil) }
+        guard numbers.count == 14 else {
+            return (false, "CNPJ incompleto (digite 14 dígitos)")
+        }
+        
+        if Set(numbers).count == 1 {
+            return (false, "CNPJ inválido (dígitos repetidos)")
+        }
+        
+        // 1º dígito
+        let weights1 = [5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+        let sum1 = (0..<12).reduce(0) { $0 + numbers[$1] * weights1[$1] }
+        let mod1 = sum1 % 11
+        let digit1 = (mod1 < 2) ? 0 : 11 - mod1
+        if digit1 != numbers[12] {
+            return (false, "CNPJ inválido (dígito incorreto)")
+        }
+        
+        // 2º dígito
+        let weights2 = [6, 5, 4, 3, 2, 9, 8, 7, 6, 5, 4, 3, 2]
+        let sum2 = (0..<13).reduce(0) { $0 + numbers[$1] * weights2[$1] }
+        let mod2 = sum2 % 11
+        let digit2 = (mod2 < 2) ? 0 : 11 - mod2
+        if digit2 != numbers[13] {
+            return (false, "CNPJ inválido (dígito incorreto)")
+        }
+        
+        return (true, "CNPJ autêntico e válido")
+    }
+    
+    /// Validação de Telefone / Celular Brasileiro (DDDs válidos e padrão Anatel)
+    static func validatePhone(_ value: String) -> (isValid: Bool, message: String?) {
+        let digits = value.filter { $0.isNumber }
+        guard !digits.isEmpty else { return (false, nil) }
+        guard digits.count >= 10 else {
+            return (false, "Telefone incompleto com DDD")
+        }
+        
+        let dddString = String(digits.prefix(2))
+        guard let ddd = Int(dddString) else {
+            return (false, "DDD inválido")
+        }
+        
+        let validDDDs: Set<Int> = [
+            11, 12, 13, 14, 15, 16, 17, 18, 19,
+            21, 22, 24, 27, 28,
+            31, 32, 33, 34, 35, 37, 38,
+            41, 42, 43, 44, 45, 46, 47, 48, 49,
+            51, 53, 54, 55,
+            61, 62, 63, 64, 65, 66, 67, 68, 69,
+            71, 73, 74, 75, 77, 79,
+            81, 82, 83, 84, 85, 86, 87, 88, 89,
+            91, 92, 93, 94, 95, 96, 97, 98, 99
+        ]
+        
+        guard validDDDs.contains(ddd) else {
+            return (false, "DDD (\(ddd)) inexistente no Brasil")
+        }
+        
+        if digits.count == 11 {
+            let thirdIndex = digits.index(digits.startIndex, offsetBy: 2)
+            if digits[thirdIndex] != "9" {
+                return (false, "Celular deve iniciar com dígito 9 após o DDD")
+            }
+        }
+        
+        let body = digits.dropFirst(2)
+        if Set(body).count == 1 {
+            return (false, "Número inválido (dígitos repetidos)")
+        }
+        
+        return (true, "Telefone verificado (DDD \(ddd))")
+    }
+    
+    /// Validação de E-mail
+    static func validateEmail(_ value: String) -> (isValid: Bool, message: String?) {
+        let trimmed = value.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !trimmed.isEmpty else { return (false, nil) }
+        let emailRegex = #"^[A-Za-z0-9._%+-]+@[A-Za-z0-9.-]+\.[A-Za-z]{2,}$"#
+        if trimmed.range(of: emailRegex, options: .regularExpression) != nil {
+            return (true, "E-mail válido")
+        } else {
+            return (false, "Formato de e-mail inválido")
+        }
+    }
+}
+
 // MARK: - Campo de Texto Estilizado (EmberTextField)
 struct EmberTextField: View {
     let title: String
@@ -90,9 +214,15 @@ struct EmberTextField: View {
     var keyboardType: UIKeyboardType = .default
     var autocapitalization: TextInputAutocapitalization = .never
     var mask: ((String) -> String)? = nil
+    var validator: ((String) -> (isValid: Bool, message: String?))? = nil
     var helperText: String? = nil
     
     @FocusState private var isFocused: Bool
+    
+    var validationResult: (isValid: Bool, message: String?)? {
+        guard let validator = validator, !text.isEmpty else { return nil }
+        return validator(text)
+    }
     
     var body: some View {
         VStack(alignment: .leading, spacing: 6) {
@@ -131,6 +261,12 @@ struct EmberTextField: View {
                 .textInputAutocapitalization(autocapitalization)
                 .font(.subheadline)
                 
+                if let val = validationResult {
+                    Image(systemName: val.isValid ? "checkmark.circle.fill" : "exclamationmark.circle.fill")
+                        .font(.system(size: 15))
+                        .foregroundColor(val.isValid ? .green : .red)
+                }
+                
                 if !text.isEmpty {
                     Button(action: { text = "" }) {
                         Image(systemName: "xmark.circle.fill")
@@ -145,11 +281,21 @@ struct EmberTextField: View {
             .cornerRadius(12)
             .overlay(
                 RoundedRectangle(cornerRadius: 12)
-                    .stroke(isFocused ? Color.appPurple : Color(UIColor.systemGray4).opacity(0.5), lineWidth: isFocused ? 1.8 : 1)
+                    .stroke(
+                        validationResult != nil
+                            ? (validationResult!.isValid ? Color.green.opacity(0.8) : Color.red.opacity(0.8))
+                            : (isFocused ? Color.appPurple : Color(UIColor.systemGray4).opacity(0.5)),
+                        lineWidth: isFocused || validationResult != nil ? 1.8 : 1
+                    )
             )
             .animation(.easeInOut(duration: 0.15), value: isFocused)
             
-            if let helper = helperText, !helper.isEmpty {
+            if let val = validationResult, let msg = val.message {
+                Text(msg)
+                    .font(.caption2)
+                    .foregroundColor(val.isValid ? .green : .red)
+                    .padding(.leading, 4)
+            } else if let helper = helperText, !helper.isEmpty {
                 Text(helper)
                     .font(.caption2)
                     .foregroundColor(.secondary)

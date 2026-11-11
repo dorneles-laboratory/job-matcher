@@ -245,6 +245,7 @@ struct JobPosting: Identifiable, Equatable {
     let requiredSkills: [String]
     var requirements: [String] = [] // Requisitos da vaga
     let salaryRange: String
+    var coverImageURL: String? = nil
     
     init(
         id: UUID = UUID(),
@@ -257,7 +258,8 @@ struct JobPosting: Identifiable, Equatable {
         description: String,
         requiredSkills: [String],
         requirements: [String] = [],
-        salaryRange: String
+        salaryRange: String,
+        coverImageURL: String? = nil
     ) {
         self.id = id
         self.companyId = companyId
@@ -270,6 +272,7 @@ struct JobPosting: Identifiable, Equatable {
         self.requiredSkills = requiredSkills
         self.requirements = requirements
         self.salaryRange = salaryRange
+        self.coverImageURL = coverImageURL
     }
 }
 
