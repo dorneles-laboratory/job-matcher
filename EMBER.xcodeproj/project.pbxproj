@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		67909B3A30A27BA500A1FF30 /* EMBER.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; name = EMBER.app; path = "/Users/student_02/Desktop/ProjetosTH/EMBER/build/Debug-iphoneos/EMBER.app"; sourceTree = "<absolute>"; };
+		67909B3A30A27BA500A1FF30 /* EMBER.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EMBER.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */

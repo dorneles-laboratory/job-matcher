@@ -1,5 +1,13 @@
+# macOS
 .DS_Store
-DerivedData/
+*/.DS_Store
+
+# Xcode
 build/
+DerivedData/
 *.xcuserstate
 xcuserdata/
+*.xcuserdatad
+
+# CocoaPods / SPM cache
+.build/
