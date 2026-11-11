@@ -26,22 +26,82 @@ struct CompanyMainTabView: View {
 
 struct CompanyCandidateSwipeView: View {
     @EnvironmentObject var vm: JobTinderViewModel
+    @State private var selectedJobId: UUID? = nil
+    
+    var companyJobs: [JobPosting] {
+        let list = vm.jobs.filter { $0.companyId == vm.currentUser?.id }
+        return list.isEmpty ? vm.jobs : list
+    }
+    
+    var activeJob: JobPosting? {
+        if let id = selectedJobId, let found = companyJobs.first(where: { $0.id == id }) {
+            return found
+        }
+        return companyJobs.first
+    }
     
     var body: some View {
         NavigationView {
-            ZStack {
-                if vm.candidates.isEmpty {
-                    VStack {
-                        Image(systemName: "person.crop.circle.badge.checkmark")
-                            .font(.system(size: 60))
-                            .foregroundColor(.appPurple)
-                        Text("Nenhum currículo pendente para análise.")
-                            .font(.headline)
-                            .padding(.top, 10)
+            VStack(spacing: 8) {
+                // Seletor da Vaga da Empresa em Avaliação
+                if let job = activeJob {
+                    Menu {
+                        ForEach(companyJobs) { j in
+                            Button(action: { selectedJobId = j.id }) {
+                                HStack {
+                                    Text(j.title)
+                                    if j.id == job.id {
+                                        Image(systemName: "checkmark")
+                                    }
+                                }
+                            }
+                        }
+                    } label: {
+                        HStack(spacing: 8) {
+                            Image(systemName: "briefcase.fill")
+                                .foregroundColor(.appPurple)
+                            VStack(alignment: .leading, spacing: 2) {
+                                Text("AVALIANDO PARA A VAGA:")
+                                    .font(.caption2).bold().foregroundColor(.secondary)
+                                Text(job.title)
+                                    .font(.subheadline).bold().foregroundColor(.primary)
+                                    .lineLimit(1)
+                            }
+                            Spacer()
+                            Image(systemName: "chevron.up.chevron.down")
+                                .font(.caption2)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding(.horizontal, 14)
+                        .padding(.vertical, 10)
+                        .background(Color(UIColor.secondarySystemGroupedBackground))
+                        .cornerRadius(12)
+                        .overlay(
+                            RoundedRectangle(cornerRadius: 12)
+                                .stroke(Color.appPurple.opacity(0.2), lineWidth: 1)
+                        )
+                        .padding(.horizontal)
+                        .padding(.top, 4)
                     }
-                } else {
-                    ForEach(vm.candidates.reversed()) { candidate in
-                        CandidateCardView(candidate: candidate)
+                }
+                
+                ZStack {
+                    if vm.candidates.isEmpty {
+                        VStack(spacing: 12) {
+                            Image(systemName: "person.crop.circle.badge.checkmark")
+                                .font(.system(size: 60))
+                                .foregroundColor(.appPurple)
+                            Text("Nenhum currículo pendente para análise.")
+                                .font(.headline)
+                            Text("Todos os candidatos para esta vaga já foram avaliados.")
+                                .font(.subheadline)
+                                .foregroundColor(.secondary)
+                        }
+                        .padding()
+                    } else if let job = activeJob {
+                        ForEach(vm.candidates.reversed()) { candidate in
+                            CandidateCardView(candidate: candidate, targetJob: job)
+                        }
                     }
                 }
             }
@@ -53,7 +113,20 @@ struct CompanyCandidateSwipeView: View {
 struct CandidateCardView: View {
     @EnvironmentObject var vm: JobTinderViewModel
     let candidate: UserProfile
+    let targetJob: JobPosting
     @State private var offset = CGSize.zero
+    
+    var compatibility: Int {
+        calculateCompatibility(
+            candidateSkills: candidate.skills,
+            certificates: candidate.certificates,
+            requiredSkills: targetJob.requiredSkills
+        )
+    }
+    
+    var candidateAlreadyLiked: Bool {
+        vm.candidateLikesByCandidate[candidate.id]?.contains(targetJob.id) ?? false
+    }
     
     var body: some View {
         ZStack {
@@ -62,7 +135,8 @@ struct CandidateCardView: View {
                 .shadow(radius: 8)
             
             VStack(alignment: .leading, spacing: 12) {
-                HStack {
+                // Header com Nome e Badges
+                HStack(alignment: .center) {
                     VStack(alignment: .leading, spacing: 4) {
                         Text(candidate.name).font(.title2).bold()
                         Text("CPF: \(candidate.cpf ?? "Não informado")")
@@ -71,21 +145,53 @@ struct CandidateCardView: View {
                     }
                     Spacer()
                     
-                    if let dis = candidate.disability, dis != .none {
-                        Text(dis.rawValue)
-                            .font(.caption2).bold()
-                            .padding(6)
-                            .background(Color.blue.opacity(0.15))
-                            .foregroundColor(.blue)
-                            .cornerRadius(8)
-                    }
+                    CompatibilityBadge(percentage: compatibility)
                 }
                 
-                if let gender = candidate.gender {
-                    HStack {
+                // Badge se o candidato já curtiu esta vaga
+                if candidateAlreadyLiked {
+                    HStack(spacing: 6) {
+                        Image(systemName: "heart.fill")
+                            .font(.caption2)
+                            .foregroundColor(.red)
+                        Text("Demonstrou interesse nesta vaga! (Match garantido ao curtir)")
+                            .font(.caption2)
+                            .bold()
+                            .foregroundColor(.red)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color.red.opacity(0.12))
+                    .cornerRadius(8)
+                } else {
+                    HStack(spacing: 6) {
+                        Image(systemName: "clock.arrow.circlepath")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                        Text("O Match só será concluído se o candidato também curtir")
+                            .font(.caption2)
+                            .foregroundColor(.secondary)
+                    }
+                    .padding(.horizontal, 10)
+                    .padding(.vertical, 5)
+                    .background(Color(UIColor.systemGray6))
+                    .cornerRadius(8)
+                }
+                
+                HStack(spacing: 12) {
+                    if let gender = candidate.gender {
                         Label(gender.rawValue, systemImage: "person.fill")
                             .font(.caption)
                             .foregroundColor(.gray)
+                    }
+                    
+                    if let dis = candidate.disability, dis != .none {
+                        Text(dis.rawValue)
+                            .font(.caption2).bold()
+                            .padding(4)
+                            .background(Color.blue.opacity(0.15))
+                            .foregroundColor(.blue)
+                            .cornerRadius(6)
                     }
                 }
                 
@@ -169,10 +275,8 @@ struct CandidateCardView: View {
     }
     
     private func swipe(liked: Bool) {
-        if let currentJob = vm.jobs.first {
-            withAnimation {
-                vm.swipeCandidate(candidate: candidate, job: currentJob, liked: liked)
-            }
+        withAnimation {
+            vm.swipeCandidate(candidate: candidate, job: targetJob, liked: liked)
         }
     }
 }
@@ -210,57 +314,129 @@ struct CreateJobView: View {
     @State private var location = ""
     @State private var modality = "Remoto"
     @State private var description = ""
-    @State private var requirements = ""
+    @State private var requiredSkillTags: [String] = []
     @State private var salary = ""
     
     let modalityOptions = ["Remoto", "Híbrido", "Presencial"]
     
     var body: some View {
         NavigationView {
-            Form {
-                Section(header: Text("Informações Básicas")) {
-                    TextField("Título da Vaga (ex: Desenvolvedor iOS)", text: $title)
-                    TextField("Localização (ex: São Paulo - SP)", text: $location)
-                    
-                    Picker("Modalidade", selection: $modality) {
-                        ForEach(modalityOptions, id: \.self) { mod in
-                            Text(mod).tag(mod)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 20) {
+                    // Informações Básicas
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("INFORMAÇÕES DA VAGA")
+                            .font(.caption2).bold().foregroundColor(.appPurple)
+                        
+                        EmberTextField(
+                            title: "TÍTULO DA VAGA",
+                            placeholder: "ex: Desenvolvedor iOS Pleno",
+                            text: $title,
+                            icon: "briefcase.fill",
+                            isRequired: true,
+                            autocapitalization: .words
+                        )
+                        
+                        EmberTextField(
+                            title: "LOCALIZAÇÃO",
+                            placeholder: "ex: São Paulo - SP ou Brasil (Remoto)",
+                            text: $location,
+                            icon: "mappin.and.ellipse",
+                            isRequired: true,
+                            autocapitalization: .words
+                        )
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("MODALIDADE DE TRABALHO")
+                                .font(.caption).bold().foregroundColor(.secondary)
+                            
+                            Picker("Modalidade", selection: $modality) {
+                                ForEach(modalityOptions, id: \.self) { mod in
+                                    Text(mod).tag(mod)
+                                }
+                            }
+                            .pickerStyle(.segmented)
                         }
+                        
+                        EmberTextField(
+                            title: "FAIXA SALARIAL",
+                            placeholder: "ex: R$ 6.500 - R$ 9.000 (CLT)",
+                            text: $salary,
+                            icon: "banknote.fill"
+                        )
                     }
-                    .pickerStyle(.segmented)
+                    .padding(16)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
                     
-                    TextField("Faixa Salarial (ex: R$ 6.000 - R$ 8.000)", text: $salary)
+                    // Requisitos & Habilidades
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("REQUISITOS & COMPETÊNCIAS EXIGIDAS")
+                            .font(.caption2).bold().foregroundColor(.appPurple)
+                        
+                        SkillTagInputView(
+                            title: "HABILIDADES NECESSÁRIAS",
+                            placeholder: "Digite o requisito (ex: SwiftUI, Git)",
+                            tags: $requiredSkillTags,
+                            suggestions: ["Swift", "SwiftUI", "iOS", "Git", "Clean Architecture", "Python", "SQL", "React", "Comunicação", "Figma"],
+                            isRequired: true
+                        )
+                    }
+                    .padding(16)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+                    
+                    // Descrição Completa
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("DETALHES DA OPORTUNIDADE")
+                            .font(.caption2).bold().foregroundColor(.appPurple)
+                        
+                        EmberTextEditor(
+                            title: "DESCRIÇÃO DA VAGA",
+                            placeholder: "Descreva as principais responsabilidades, benefícios, desafios e diferenciais da oportunidade...",
+                            text: $description,
+                            icon: "text.alignleft",
+                            isRequired: true,
+                            minHeight: 120
+                        )
+                    }
+                    .padding(16)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
                 }
-                
-                Section(header: Text("Requisitos"), footer: Text("Separe múltiplos requisitos por vírgula.")) {
-                    TextField("Ex: Swift, SwiftUI, MVVM, Git", text: $requirements)
-                }
-                
-                Section(header: Text("Descrição da Vaga")) {
-                    TextEditor(text: $description)
-                        .frame(minHeight: 120)
-                }
+                .padding(.horizontal)
+                .padding(.vertical, 16)
             }
+            .background(Color(UIColor.systemGroupedBackground))
             .navigationTitle("Criar Nova Vaga")
+            .navigationBarTitleDisplayMode(.inline)
             .toolbar {
                 ToolbarItem(placement: .navigationBarLeading) {
                     Button("Cancelar") { presentationMode.wrappedValue.dismiss() }
                 }
                 ToolbarItem(placement: .navigationBarTrailing) {
+                    let canPublish = !title.trimmingCharacters(in: .whitespaces).isEmpty &&
+                                     !location.trimmingCharacters(in: .whitespaces).isEmpty &&
+                                     !requiredSkillTags.isEmpty
+                    
                     Button("Publicar") {
+                        let requirementsString = requiredSkillTags.joined(separator: ", ")
                         vm.addJob(
                             title: title,
                             location: location,
                             modality: modality,
                             description: description,
-                            requirements: requirements,
+                            requirements: requirementsString,
                             salary: salary
                         )
                         presentationMode.wrappedValue.dismiss()
                     }
                     .bold()
-                    .foregroundColor(.appPurple)
-                    .disabled(title.trimmingCharacters(in: .whitespaces).isEmpty)
+                    .foregroundColor(canPublish ? .appPurple : .gray)
+                    .disabled(!canPublish)
                 }
             }
         }
@@ -410,36 +586,130 @@ struct EditCompanyProfileView: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                Section(header: Text("Identificação da Empresa")) {
-                    TextField("Razão Social", text: $companyName)
-                    TextField("Nome Fantasia", text: $tradeName)
-                    TextField("Telefone Corporativo / WhatsApp", text: $phone)
-                        .keyboardType(.phonePad)
-                    TextField("Endereço / Sede (Cidade - UF)", text: $address)
-                }
-                
-                Section(header: Text("Segmento & Porte")) {
-                    TextField("Ramo / Setor de Atuação", text: $industry)
-                    
-                    Picker("Porte da Empresa", selection: $companySize) {
-                        ForEach(CompanySize.allCases) { size in
-                            Text(size.rawValue).tag(size)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 20) {
+                    // Identificação da Empresa
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("IDENTIFICAÇÃO DA EMPRESA")
+                            .font(.caption2).bold().foregroundColor(.appPurple)
+                        
+                        EmberTextField(
+                            title: "RAZÃO SOCIAL",
+                            placeholder: "Razão social cadastrada",
+                            text: $companyName,
+                            icon: "building.2.fill",
+                            isRequired: true,
+                            autocapitalization: .words
+                        )
+                        
+                        EmberTextField(
+                            title: "NOME FANTASIA (PÚBLICO)",
+                            placeholder: "Nome exibido nas vagas",
+                            text: $tradeName,
+                            icon: "tag.fill",
+                            autocapitalization: .words
+                        )
+                        
+                        HStack(spacing: 12) {
+                            EmberTextField(
+                                title: "TELEFONE CORPORATIVO",
+                                placeholder: "(00) 0000-0000",
+                                text: $phone,
+                                icon: "phone.fill",
+                                keyboardType: .phonePad,
+                                mask: InputMask.phone
+                            )
+                            
+                            EmberTextField(
+                                title: "SEDE (CIDADE - UF)",
+                                placeholder: "ex: São Paulo - SP",
+                                text: $address,
+                                icon: "mappin.and.ellipse",
+                                autocapitalization: .words
+                            )
                         }
                     }
+                    .padding(16)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+                    
+                    // Segmento e Porte
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("SEGMENTO & PORTE")
+                            .font(.caption2).bold().foregroundColor(.appPurple)
+                        
+                        EmberTextField(
+                            title: "RAMO / SETOR DE ATUAÇÃO",
+                            placeholder: "ex: Tecnologia, Serviços Financeiros...",
+                            text: $industry,
+                            icon: "briefcase.fill",
+                            autocapitalization: .words
+                        )
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("PORTE DA EMPRESA")
+                                .font(.caption).bold().foregroundColor(.secondary)
+                            
+                            Picker("Porte da Empresa", selection: $companySize) {
+                                ForEach(CompanySize.allCases) { size in
+                                    Text(size.rawValue).tag(size)
+                                }
+                            }
+                            .pickerStyle(MenuPickerStyle())
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(UIColor.secondarySystemGroupedBackground))
+                            .cornerRadius(12)
+                        }
+                    }
+                    .padding(16)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+                    
+                    // Descrição Institucional
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("SOBRE A ORGANIZAÇÃO")
+                            .font(.caption2).bold().foregroundColor(.appPurple)
+                        
+                        EmberTextEditor(
+                            title: "DESCRIÇÃO INSTITUCIONAL (BIO)",
+                            placeholder: "Conte sobre a história, valores, projetos e ambiente de trabalho da empresa...",
+                            text: $bio,
+                            icon: "text.quote",
+                            minHeight: 110
+                        )
+                    }
+                    .padding(16)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+                    
+                    // Links
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("PÁGINA OU WEBSITE")
+                            .font(.caption2).bold().foregroundColor(.appPurple)
+                        
+                        EmberTextField(
+                            title: "URL DO WEBSITE OU LINKEDIN",
+                            placeholder: "https://suaempresa.com.br",
+                            text: $website,
+                            icon: "globe",
+                            keyboardType: .URL,
+                            autocapitalization: .never
+                        )
+                    }
+                    .padding(16)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
                 }
-                
-                Section(header: Text("Descrição Institucional (Bio)")) {
-                    TextEditor(text: $bio)
-                        .frame(minHeight: 110)
-                }
-                
-                Section(header: Text("Website ou Página")) {
-                    TextField("URL do Website / LinkedIn", text: $website)
-                        .keyboardType(.URL)
-                        .autocapitalization(.none)
-                }
+                .padding(.horizontal)
+                .padding(.vertical, 16)
             }
+            .background(Color(UIColor.systemGroupedBackground))
             .navigationTitle("Editar Empresa")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

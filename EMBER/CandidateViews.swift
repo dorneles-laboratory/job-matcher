@@ -942,44 +942,149 @@ struct EditCandidateProfileView: View {
     
     var body: some View {
         NavigationView {
-            Form {
-                Section(header: Text("Dados Pessoais & Contato")) {
-                    TextField("Nome Completo", text: $name)
-                    TextField("Telefone / WhatsApp", text: $phone)
-                        .keyboardType(.phonePad)
-                    TextField("Residência (Cidade / Estado)", text: $address)
-                    TextField("Data de Nascimento (DD/MM/AAAA)", text: $birthDate)
-                    
-                    Picker("Gênero", selection: $gender) {
-                        ForEach(Gender.allCases) { g in
-                            Text(g.rawValue).tag(g)
+            ScrollView(showsIndicators: false) {
+                VStack(spacing: 20) {
+                    // Seção: Dados Pessoais & Contato
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("DADOS PESSOAIS & CONTATO")
+                            .font(.caption2).bold().foregroundColor(.appPurple)
+                        
+                        EmberTextField(
+                            title: "NOME COMPLETO",
+                            placeholder: "Seu nome",
+                            text: $name,
+                            icon: "person.fill",
+                            isRequired: true,
+                            autocapitalization: .words
+                        )
+                        
+                        HStack(spacing: 12) {
+                            EmberTextField(
+                                title: "CELULAR / WHATSAPP",
+                                placeholder: "(00) 00000-0000",
+                                text: $phone,
+                                icon: "phone.fill",
+                                keyboardType: .phonePad,
+                                mask: InputMask.phone
+                            )
+                            
+                            EmberTextField(
+                                title: "DATA DE NASCIMENTO",
+                                placeholder: "DD/MM/AAAA",
+                                text: $birthDate,
+                                icon: "calendar",
+                                keyboardType: .numberPad,
+                                mask: InputMask.date
+                            )
+                        }
+                        
+                        EmberTextField(
+                            title: "RESIDÊNCIA (CIDADE / ESTADO)",
+                            placeholder: "ex: Santa Maria - RS",
+                            text: $address,
+                            icon: "mappin.and.ellipse",
+                            autocapitalization: .words
+                        )
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("GÊNERO")
+                                .font(.caption).bold().foregroundColor(.secondary)
+                            
+                            Picker("Gênero", selection: $gender) {
+                                ForEach(Gender.allCases) { g in
+                                    Text(g.rawValue).tag(g)
+                                }
+                            }
+                            .pickerStyle(MenuPickerStyle())
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(UIColor.secondarySystemGroupedBackground))
+                            .cornerRadius(12)
                         }
                     }
-                }
-                
-                Section(header: Text("Acessibilidade / PCD")) {
-                    Picker("Condição PCD", selection: $disability) {
-                        ForEach(DisabilityType.allCases) { d in
-                            Text(d.rawValue).tag(d)
+                    .padding(16)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+                    
+                    // Seção: Acessibilidade & PCD
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("ACESSIBILIDADE / PCD")
+                            .font(.caption2).bold().foregroundColor(.appPurple)
+                        
+                        VStack(alignment: .leading, spacing: 6) {
+                            Text("CONDIÇÃO PCD")
+                                .font(.caption).bold().foregroundColor(.secondary)
+                            
+                            Picker("Condição PCD", selection: $disability) {
+                                ForEach(DisabilityType.allCases) { d in
+                                    Text(d.rawValue).tag(d)
+                                }
+                            }
+                            .pickerStyle(MenuPickerStyle())
+                            .padding(.horizontal, 12)
+                            .padding(.vertical, 10)
+                            .frame(maxWidth: .infinity, alignment: .leading)
+                            .background(Color(UIColor.secondarySystemGroupedBackground))
+                            .cornerRadius(12)
+                        }
+                        
+                        if disability != .none {
+                            EmberTextField(
+                                title: "DETALHES OU NECESSIDADES ESPECÍFICAS",
+                                placeholder: "ex: Leitor de tela, recursos ergonômicos...",
+                                text: $disabilityDetails,
+                                icon: "accessibility"
+                            )
                         }
                     }
+                    .padding(16)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
                     
-                    if disability != .none {
-                        TextField("Detalhes ou necessidades de acessibilidade", text: $disabilityDetails)
+                    // Seção: Biografia & Resumo
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("RESUMO PROFISSIONAL")
+                            .font(.caption2).bold().foregroundColor(.appPurple)
+                        
+                        EmberTextEditor(
+                            title: "BIOGRAFIA / SOBRE VOCÊ",
+                            placeholder: "Compartilhe sua trajetória, objetivos e especialidades...",
+                            text: $bio,
+                            icon: "text.quote",
+                            minHeight: 100
+                        )
                     }
+                    .padding(16)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
+                    
+                    // Seção: Links
+                    VStack(alignment: .leading, spacing: 14) {
+                        Text("LINKS E REDES")
+                            .font(.caption2).bold().foregroundColor(.appPurple)
+                        
+                        EmberTextField(
+                            title: "LINKEDIN OU PORTFÓLIO",
+                            placeholder: "https://linkedin.com/in/...",
+                            text: $linkedInURL,
+                            icon: "link",
+                            keyboardType: .URL,
+                            autocapitalization: .never
+                        )
+                    }
+                    .padding(16)
+                    .background(Color(UIColor.systemBackground))
+                    .cornerRadius(16)
+                    .shadow(color: Color.black.opacity(0.04), radius: 6, x: 0, y: 2)
                 }
-                
-                Section(header: Text("Biografia / Sobre Você")) {
-                    TextEditor(text: $bio)
-                        .frame(minHeight: 110)
-                }
-                
-                Section(header: Text("Links Profissionais")) {
-                    TextField("URL do LinkedIn", text: $linkedInURL)
-                        .keyboardType(.URL)
-                        .autocapitalization(.none)
-                }
+                .padding(.horizontal)
+                .padding(.vertical, 16)
             }
+            .background(Color(UIColor.systemGroupedBackground))
             .navigationTitle("Editar Perfil")
             .navigationBarTitleDisplayMode(.inline)
             .toolbar {

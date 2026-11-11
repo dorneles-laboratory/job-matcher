@@ -16,6 +16,7 @@ class JobTinderViewModel: ObservableObject {
     
     @Published var likedJobsList: [JobPosting] = []
     @Published var candidateLikes: Set<UUID> = []
+    @Published var candidateLikesByCandidate: [UUID: Set<UUID>] = [:]
     @Published var companyLikes: [UUID: Set<UUID>] = [:]
     
     @Published var conversations: [MatchConversation] = []
@@ -31,6 +32,8 @@ class JobTinderViewModel: ObservableObject {
             if let candidate = candidates.first(where: { $0.email.lowercased() == email.lowercased() && $0.password == password }) {
                 self.currentUser = candidate
                 self.isAuthenticated = true
+                self.candidateLikes = self.candidateLikesByCandidate[candidate.id] ?? []
+                self.likedJobsList = self.jobs.filter { self.candidateLikes.contains($0.id) }
                 sortJobsByRelevance()
                 return true
             }
@@ -103,18 +106,14 @@ class JobTinderViewModel: ObservableObject {
         
         if liked {
             candidateLikes.insert(job.id)
+            candidateLikesByCandidate[candidate.id, default: []].insert(job.id)
             if !likedJobsList.contains(where: { $0.id == job.id }) { likedJobsList.append(job) }
             
+            // REGRA: O match SÓ acontece se a empresa e o candidato demonstrarem interesse mútuo.
+            // Aqui verificamos se a empresa já curtiu este candidato para esta vaga previamente:
             let companyAlreadyLiked = companyLikes[job.id]?.contains(candidate.id) ?? false
-            let compatibility = calculateCompatibility(
-                candidateSkills: candidate.skills, certificates: candidate.certificates, requiredSkills: job.requiredSkills
-            )
             
-            let isRandomMatch = compatibility >= 30 && Int.random(in: 1...100) <= 35
-            let isHighCompatibilityMatch = compatibility >= 65
-            
-            if companyAlreadyLiked || isRandomMatch || isHighCompatibilityMatch {
-                companyLikes[job.id, default: []].insert(candidate.id)
+            if companyAlreadyLiked {
                 createConversationIfNeeded(candidate: candidate, job: job)
                 triggerMatch(candidateName: candidate.name, jobTitle: job.title)
             }
@@ -127,7 +126,12 @@ class JobTinderViewModel: ObservableObject {
     func swipeCandidate(candidate: UserProfile, job: JobPosting, liked: Bool) {
         if liked {
             companyLikes[job.id, default: []].insert(candidate.id)
-            if candidateLikes.contains(job.id) {
+            
+            // REGRA: O match SÓ acontece se a empresa e o candidato demonstrarem interesse mútuo.
+            // Aqui verificamos se o candidato já curtiu esta vaga previamente:
+            let candidateAlreadyLiked = candidateLikesByCandidate[candidate.id]?.contains(job.id) ?? false
+            
+            if candidateAlreadyLiked {
                 createConversationIfNeeded(candidate: candidate, job: job)
                 triggerMatch(candidateName: candidate.name, jobTitle: job.title)
             }
@@ -674,7 +678,7 @@ class JobTinderViewModel: ObservableObject {
         
         self.companies = mockCompanies
         
-        // MARK: - 2. Candidato Mock Inicial (Thiago Mikael)
+        // MARK: - 2. Candidatos Mock Iniciais
         let mockCandidateId = UUID(uuidString: "00000000-0000-0000-0000-000000000001")!
         let mockCandidate = UserProfile(
             id: mockCandidateId,
@@ -694,7 +698,46 @@ class JobTinderViewModel: ObservableObject {
             linkedInURL: "https://www.linkedin.com/in/thiago-mikael-copetti-dos-santos",
             pdfResumeName: "Curriculo_Thiago_Mikael.pdf"
         )
-        self.candidates = [mockCandidate]
+        
+        let mockCandidate2Id = UUID(uuidString: "00000000-0000-0000-0000-000000000002")!
+        let mockCandidate2 = UserProfile(
+            id: mockCandidate2Id,
+            email: "beatriz@example.com",
+            password: "123",
+            role: .candidate,
+            name: "Beatriz Lima",
+            cpf: "234.567.890-12",
+            phone: "+55 (11) 98765-4321",
+            address: "São Paulo - SP",
+            birthDate: "20/08/2001",
+            gender: .female,
+            disability: .none,
+            bio: "Desenvolvedora iOS focada em acessibilidade, UIKit e SwiftUI. Curiosa, proativa e com projetos publicados.",
+            skills: ["Swift", "SwiftUI", "iOS", "Git", "Clean Architecture"],
+            certificates: ["Bootcamp iOS", "Certificação Swift"],
+            linkedInURL: "https://linkedin.com/in/beatriz-lima"
+        )
+        
+        let mockCandidate3Id = UUID(uuidString: "00000000-0000-0000-0000-000000000003")!
+        let mockCandidate3 = UserProfile(
+            id: mockCandidate3Id,
+            email: "gabriel@example.com",
+            password: "123",
+            role: .candidate,
+            name: "Gabriel Mendes",
+            cpf: "345.678.901-23",
+            phone: "+55 (21) 99123-8877",
+            address: "Rio de Janeiro - RJ",
+            birthDate: "10/02/1998",
+            gender: .male,
+            disability: .none,
+            bio: "Engenheiro de Dados com experiência em pipelines escaláveis, Python, SQL e arquiteturas em nuvem.",
+            skills: ["Python", "SQL", "Pandas", "AWS", "Docker"],
+            certificates: ["AWS Certified Data Analytics"],
+            linkedInURL: "https://linkedin.com/in/gabriel-mendes"
+        )
+        
+        self.candidates = [mockCandidate, mockCandidate2, mockCandidate3]
         
         // MARK: - 3. Vagas Simuladas Detalhadas
         let job1 = JobPosting(
@@ -882,11 +925,24 @@ class JobTinderViewModel: ObservableObject {
         self.jobs = [job1, job2, job3, job4, job5, job6, job7, job8, job9, job10]
         
         // MARK: - 4. Mock Inicial de Curtidas e Conversa no Chat para Demonstração Imediata
+        // Thiago curtiu job1 e job2:
         self.candidateLikes.insert(job1.id)
         self.candidateLikes.insert(job2.id)
         self.likedJobsList = [job1, job2]
+        self.candidateLikesByCandidate[mockCandidateId] = [job1.id, job2.id]
         
+        // Beatriz curtiu job1 e job9:
+        self.candidateLikesByCandidate[mockCandidate2Id] = [job1.id, job9.id]
+        
+        // Gabriel curtiu job4:
+        self.candidateLikesByCandidate[mockCandidate3Id] = [job4.id]
+        
+        // MATCH MÚTUO REAL: Cocoa Apps Studio curtiu Thiago na vaga job1.
+        // Como Thiago também curtiu job1, ambos demonstraram interesse -> Match mútuo acontece!
         self.companyLikes[job1.id] = [mockCandidateId]
+        
+        // Observação importante: Para job2 (NuTech), Thiago curtiu, mas NuTech ainda não curtiu Thiago.
+        // Portanto, NÃO há match para job2 até que a NuTech dê match nele!
         
         let initialChat = MatchConversation(
             id: UUID(uuidString: "cccccccc-1111-2222-3333-444444444444")!,
@@ -900,7 +956,7 @@ class JobTinderViewModel: ObservableObject {
                 ChatMessage(
                     id: UUID(),
                     senderId: job1.companyId,
-                    text: "Olá Thiago! Vimos que você curtiu a vaga de \(job1.title). Seu perfil com Swift e SwiftUI deu match perfeito conosco! Quando você teria disponibilidade para bater um papo?",
+                    text: "Olá Thiago! Vimos que você curtiu a vaga de \(job1.title). Seu perfil com Swift e SwiftUI deu match mútuo com nosso time! Quando você teria disponibilidade para bater um papo?",
                     timestamp: Date().addingTimeInterval(-3600)
                 ),
                 ChatMessage(
