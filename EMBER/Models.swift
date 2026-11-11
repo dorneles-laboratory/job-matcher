@@ -35,6 +35,165 @@ enum CompanySize: String, CaseIterable, Identifiable, Codable {
     var id: String { rawValue }
 }
 
+enum WorkShift: String, CaseIterable, Identifiable, Codable {
+    case morning = "Manhã (08h às 12h)"
+    case afternoon = "Tarde (13h às 18h)"
+    case night = "Noite (18h às 22h)"
+    case fullTime = "Comercial Integral (09h às 18h)"
+    case flexible = "Horário Flexível"
+    
+    var id: String { rawValue }
+    
+    var shortName: String {
+        switch self {
+        case .morning: return "Manhã"
+        case .afternoon: return "Tarde"
+        case .night: return "Noite"
+        case .fullTime: return "Comercial"
+        case .flexible: return "Flexível"
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .morning: return "sunrise.fill"
+        case .afternoon: return "sun.max.fill"
+        case .night: return "moon.stars.fill"
+        case .fullTime: return "briefcase.fill"
+        case .flexible: return "arrow.triangle.2.circlepath"
+        }
+    }
+}
+
+enum InterviewStatus: String, CaseIterable, Identifiable, Codable {
+    case pending = "Aguardando Resposta"
+    case confirmed = "Confirmada"
+    case declined = "Recusada"
+    case expired = "Expirada por Prazo"
+    
+    var id: String { rawValue }
+    
+    var title: String { rawValue }
+    
+    var color: Color {
+        switch self {
+        case .pending: return .orange
+        case .confirmed: return .green
+        case .declined: return .red
+        case .expired: return .gray
+        }
+    }
+    
+    var icon: String {
+        switch self {
+        case .pending: return "clock.badge.exclamationmark.fill"
+        case .confirmed: return "checkmark.seal.fill"
+        case .declined: return "xmark.circle.fill"
+        case .expired: return "timer"
+        }
+    }
+}
+
+struct InterviewAppointment: Identifiable, Codable, Equatable {
+    let id: UUID
+    var conversationId: UUID? = nil
+    let jobId: UUID
+    let jobTitle: String
+    let companyId: UUID
+    let companyName: String
+    let candidateId: UUID
+    let candidateName: String
+    var scheduledDate: Date
+    var durationMinutes: Int
+    var meetingLink: String
+    var locationOrPlatform: String // Ex: "Google Meet", "Presencial", "Microsoft Teams"
+    var notes: String
+    var status: InterviewStatus
+    var deadlineDate: Date // Prazo para resposta do candidato (ex: 24h)
+    var createdAt: Date
+    
+    // Verifica se expirou automaticamente
+    var isExpired: Bool {
+        if status == .pending && Date() > deadlineDate {
+            return true
+        }
+        return status == .expired
+    }
+    
+    var effectiveStatus: InterviewStatus {
+        if status == .pending && Date() > deadlineDate {
+            return .expired
+        }
+        return status
+    }
+    
+    var remainingTimeText: String {
+        if effectiveStatus != .pending { return "" }
+        let interval = deadlineDate.timeIntervalSince(Date())
+        if interval <= 0 { return "Prazo de resposta expirado" }
+        let hours = Int(interval) / 3600
+        let minutes = (Int(interval) % 3600) / 60
+        if hours > 0 {
+            return "Responda em até \(hours)h \(minutes)min"
+        } else {
+            return "Responda em até \(max(1, minutes)) min"
+        }
+    }
+    
+    static func == (lhs: InterviewAppointment, rhs: InterviewAppointment) -> Bool {
+        lhs.id == rhs.id && lhs.status == rhs.status && lhs.scheduledDate == rhs.scheduledDate
+    }
+}
+
+struct GoogleCalendarHelper {
+    static func generateGoogleCalendarURL(appointment: InterviewAppointment) -> URL? {
+        let title = "Entrevista EMBER: \(appointment.jobTitle) (\(appointment.companyName))"
+        let details = """
+        Entrevista de Emprego pelo App EMBER.
+        Vaga: \(appointment.jobTitle)
+        Empresa: \(appointment.companyName)
+        Candidato: \(appointment.candidateName)
+        Plataforma/Local: \(appointment.locationOrPlatform)
+        Link: \(appointment.meetingLink)
+        Observações: \(appointment.notes)
+        """
+        let location = appointment.meetingLink.isEmpty ? appointment.locationOrPlatform : appointment.meetingLink
+        
+        return createCalendarURL(
+            title: title,
+            details: details,
+            location: location,
+            startDate: appointment.scheduledDate,
+            durationMinutes: appointment.durationMinutes
+        )
+    }
+    
+    static func createCalendarURL(
+        title: String,
+        details: String,
+        location: String,
+        startDate: Date,
+        durationMinutes: Int = 45
+    ) -> URL? {
+        let formatter = DateFormatter()
+        formatter.dateFormat = "yyyyMMdd'T'HHmmss'Z'"
+        formatter.timeZone = TimeZone(abbreviation: "UTC")
+        
+        let endDate = startDate.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        let datesParam = "\(formatter.string(from: startDate))/\(formatter.string(from: endDate))"
+        
+        var components = URLComponents(string: "https://calendar.google.com/calendar/render")
+        components?.queryItems = [
+            URLQueryItem(name: "action", value: "TEMPLATE"),
+            URLQueryItem(name: "text", value: title),
+            URLQueryItem(name: "details", value: details),
+            URLQueryItem(name: "location", value: location),
+            URLQueryItem(name: "dates", value: datesParam)
+        ]
+        return components?.url
+    }
+}
+
 struct UserProfile: Identifiable, Equatable {
     let id: UUID
     var email: String
@@ -55,6 +214,10 @@ struct UserProfile: Identifiable, Equatable {
     var certificates: [String]
     var linkedInURL: String
     var pdfResumeName: String?
+    
+    // Disponibilidade de Agenda do Candidato (Turnos e Dias)
+    var availableShifts: [WorkShift] = [.morning, .afternoon, .flexible]
+    var availableDays: [String] = ["Segunda-feira", "Terça-feira", "Quarta-feira", "Quinta-feira", "Sexta-feira"]
     
     // Dados de Empresa (CNPJ)
     var companyName: String?
@@ -77,6 +240,7 @@ struct JobPosting: Identifiable, Equatable {
     let title: String
     let location: String
     var modality: String = "Remoto" // Remoto, Híbrido, Presencial
+    var shift: WorkShift = .fullTime
     let description: String
     let requiredSkills: [String]
     var requirements: [String] = [] // Requisitos da vaga
@@ -89,6 +253,7 @@ struct JobPosting: Identifiable, Equatable {
         title: String,
         location: String,
         modality: String = "Remoto",
+        shift: WorkShift = .fullTime,
         description: String,
         requiredSkills: [String],
         requirements: [String] = [],
@@ -100,6 +265,7 @@ struct JobPosting: Identifiable, Equatable {
         self.title = title
         self.location = location
         self.modality = modality
+        self.shift = shift
         self.description = description
         self.requiredSkills = requiredSkills
         self.requirements = requirements

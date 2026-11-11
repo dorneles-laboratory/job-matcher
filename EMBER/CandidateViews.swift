@@ -4,6 +4,11 @@ import UniformTypeIdentifiers
 struct CandidateMainTabView: View {
     @EnvironmentObject var vm: JobTinderViewModel
     
+    var pendingAppointmentsCount: Int {
+        guard let user = vm.currentUser else { return 0 }
+        return vm.appointments.filter { $0.candidateId == user.id && $0.effectiveStatus == .pending }.count
+    }
+    
     var body: some View {
         TabView {
             CandidateSwipeView()
@@ -14,6 +19,15 @@ struct CandidateMainTabView: View {
             
             LikedJobsView()
                 .tabItem { Label("Curtidas", systemImage: "heart.fill") }
+            
+            AgendaView()
+                .tabItem {
+                    Label(
+                        "Agenda",
+                        systemImage: pendingAppointmentsCount > 0 ? "calendar.badge.exclamationmark" : "calendar"
+                    )
+                }
+                .badge(pendingAppointmentsCount)
             
             ChatListView()
                 .tabItem { Label("Chat", systemImage: "bubble.left.and.bubble.right.fill") }
@@ -94,9 +108,30 @@ struct LikedJobCardView: View {
                 .foregroundColor(modalityColor(job.modality))
                 .cornerRadius(8)
                 
+                // Badge de Turno
+                HStack(spacing: 4) {
+                    Image(systemName: job.shift.icon)
+                    Text(job.shift.shortName)
+                }
+                .font(.caption).bold()
+                .padding(.horizontal, 8).padding(.vertical, 5)
+                .background(Color.blue.opacity(0.12))
+                .foregroundColor(.blue)
+                .cornerRadius(8)
+                
                 Spacer()
                 
-                if isMatched {
+                if let appt = vm.appointments.first(where: { $0.jobId == job.id && $0.candidateId == vm.currentUser?.id }) {
+                    HStack(spacing: 4) {
+                        Image(systemName: appt.effectiveStatus.icon)
+                        Text(appt.effectiveStatus == .confirmed ? "Entrevista" : "Resposta Pendente")
+                    }
+                    .font(.caption2).bold()
+                    .padding(.horizontal, 8).padding(.vertical, 5)
+                    .background(appt.effectiveStatus.color.opacity(0.15))
+                    .foregroundColor(appt.effectiveStatus.color)
+                    .cornerRadius(8)
+                } else if isMatched {
                     HStack(spacing: 4) {
                         Image(systemName: "checkmark.seal.fill")
                         Text("MATCH! 💬")
@@ -337,9 +372,35 @@ struct JobCardView: View {
                 Text(job.title).font(.title2).bold()
                 Text(job.companyName).font(.headline).foregroundColor(.secondary)
                 
-                HStack {
-                    Image(systemName: "mappin.and.ellipse")
-                    Text(job.location)
+                HStack(spacing: 8) {
+                    HStack(spacing: 4) {
+                        Image(systemName: "mappin.and.ellipse")
+                        Text(job.location)
+                    }
+                    
+                    Text("•")
+                    
+                    HStack(spacing: 4) {
+                        Image(systemName: job.shift.icon)
+                        Text(job.shift.shortName)
+                    }
+                    .font(.caption).bold()
+                    .padding(.horizontal, 6).padding(.vertical, 2)
+                    .background(Color.blue.opacity(0.12))
+                    .foregroundColor(.blue)
+                    .cornerRadius(6)
+                    
+                    if let user = vm.currentUser, vm.hasShiftConflict(candidate: user, job: job) {
+                        HStack(spacing: 3) {
+                            Image(systemName: "exclamationmark.triangle.fill")
+                            Text("Turno Divergente")
+                        }
+                        .font(.caption2).bold()
+                        .padding(.horizontal, 6).padding(.vertical, 2)
+                        .background(Color.orange.opacity(0.15))
+                        .foregroundColor(.orange)
+                        .cornerRadius(6)
+                    }
                 }
                 .font(.subheadline).foregroundColor(.gray)
                 

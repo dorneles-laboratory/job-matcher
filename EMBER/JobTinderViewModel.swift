@@ -20,6 +20,7 @@ class JobTinderViewModel: ObservableObject {
     
     @Published var conversations: [MatchConversation] = []
     @Published var activeMatchNotification: (candidateName: String, jobTitle: String)? = nil
+    @Published var appointments: [InterviewAppointment] = []
     
     init() {
         loadMockData()
@@ -264,6 +265,151 @@ class JobTinderViewModel: ObservableObject {
             ($0.tradeName?.caseInsensitiveCompare(name) == .orderedSame) ||
             ($0.companyName?.caseInsensitiveCompare(name) == .orderedSame) ||
             ($0.name.caseInsensitiveCompare(name) == .orderedSame)
+        }
+    }
+    
+    func getCandidate(by id: UUID?) -> UserProfile? {
+        guard let id = id else { return nil }
+        return candidates.first { $0.id == id }
+    }
+    
+    // MARK: - Gestão de Agenda & Entrevistas
+    
+    /// Verifica se há sobreposição de horário na agenda do candidato
+    func hasScheduleConflict(candidateId: UUID, targetDate: Date, durationMinutes: Int = 45) -> (hasConflict: Bool, conflictingTitle: String?) {
+        let newStart = targetDate
+        let newEnd = targetDate.addingTimeInterval(TimeInterval(durationMinutes * 60))
+        
+        for appt in appointments where appt.candidateId == candidateId && (appt.status == .confirmed || appt.status == .pending) {
+            let apptStart = appt.scheduledDate
+            let apptEnd = appt.scheduledDate.addingTimeInterval(TimeInterval(appt.durationMinutes * 60))
+            
+            // Sobreposição de intervalos
+            if max(newStart, apptStart) < min(newEnd, apptEnd) {
+                return (true, appt.jobTitle)
+            }
+        }
+        return (false, nil)
+    }
+    
+    /// Verifica se o turno da vaga conflita com a disponibilidade do candidato
+    func hasShiftConflict(candidate: UserProfile, job: JobPosting) -> Bool {
+        if candidate.availableShifts.contains(.flexible) { return false }
+        return !candidate.availableShifts.contains(job.shift)
+    }
+    
+    /// Agendar nova entrevista com prazo de resposta para evitar empresas esperando no vácuo
+    func scheduleInterview(
+        conversationId: UUID?,
+        jobId: UUID,
+        jobTitle: String,
+        companyId: UUID,
+        companyName: String,
+        candidateId: UUID,
+        candidateName: String,
+        date: Date,
+        durationMinutes: Int = 45,
+        locationOrPlatform: String = "Google Meet",
+        meetingLink: String = "https://meet.google.com/ember-interview",
+        notes: String = "",
+        deadlineHours: Int = 24
+    ) -> (success: Bool, message: String) {
+        let conflict = hasScheduleConflict(candidateId: candidateId, targetDate: date, durationMinutes: durationMinutes)
+        if conflict.hasConflict {
+            return (false, "Conflito de agenda! O candidato já possui outro compromisso (\(conflict.conflictingTitle ?? "")) nesse horário.")
+        }
+        
+        let deadline = Date().addingTimeInterval(TimeInterval(deadlineHours * 3600))
+        let newAppointment = InterviewAppointment(
+            id: UUID(),
+            conversationId: conversationId,
+            jobId: jobId,
+            jobTitle: jobTitle,
+            companyId: companyId,
+            companyName: companyName,
+            candidateId: candidateId,
+            candidateName: candidateName,
+            scheduledDate: date,
+            durationMinutes: durationMinutes,
+            meetingLink: meetingLink,
+            locationOrPlatform: locationOrPlatform,
+            notes: notes,
+            status: .pending,
+            deadlineDate: deadline,
+            createdAt: Date()
+        )
+        
+        appointments.append(newAppointment)
+        
+        // Mensagem automática no chat vinculado
+        let targetConvId = conversationId ?? conversations.first(where: { $0.jobId == jobId && $0.candidateId == candidateId })?.id
+        if let convId = targetConvId {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .short
+            formatter.timeStyle = .short
+            formatter.locale = Locale(identifier: "pt_BR")
+            let dateStr = formatter.string(from: date)
+            
+            let inviteText = "📅 Convite para Entrevista: \(dateStr) (\(durationMinutes) min) via \(locationOrPlatform). Por favor, confirme na aba Agenda em até \(deadlineHours) horas para garantir sua vaga!"
+            sendMessage(conversationId: convId, text: inviteText)
+        }
+        
+        return (true, "Convite enviado com sucesso! Prazo de resposta: \(deadlineHours)h.")
+    }
+    
+    /// Candidato confirma o horário da entrevista
+    func acceptInterview(appointmentId: UUID) {
+        guard let index = appointments.firstIndex(where: { $0.id == appointmentId }) else { return }
+        appointments[index].status = .confirmed
+        
+        let appt = appointments[index]
+        let targetConvId = appt.conversationId ?? conversations.first(where: { $0.jobId == appt.jobId && $0.candidateId == appt.candidateId })?.id
+        if let convId = targetConvId {
+            let formatter = DateFormatter()
+            formatter.dateStyle = .short
+            formatter.timeStyle = .short
+            formatter.locale = Locale(identifier: "pt_BR")
+            sendMessage(conversationId: convId, text: "✅ Entrevista confirmada para \(formatter.string(from: appt.scheduledDate))! Compromisso salvo na agenda.")
+        }
+    }
+    
+    /// Recusa de entrevista (Candidato ou Empresa)
+    func declineInterview(appointmentId: UUID, reason: String? = nil) {
+        guard let index = appointments.firstIndex(where: { $0.id == appointmentId }) else { return }
+        appointments[index].status = .declined
+        
+        let appt = appointments[index]
+        let targetConvId = appt.conversationId ?? conversations.first(where: { $0.jobId == appt.jobId && $0.candidateId == appt.candidateId })?.id
+        if let convId = targetConvId {
+            let reasonText = (reason != nil && !reason!.isEmpty) ? " Motivo: \(reason!)" : ""
+            sendMessage(conversationId: convId, text: "❌ O convite de entrevista para \(appt.jobTitle) foi recusado.\(reasonText) O horário foi liberado na agenda da empresa.")
+        }
+    }
+    
+    /// Atualiza os turnos e dias de disponibilidade do candidato
+    func updateCandidateAvailability(shifts: [WorkShift], days: [String]) {
+        guard var user = currentUser else { return }
+        user.availableShifts = shifts
+        user.availableDays = days
+        self.currentUser = user
+        if let idx = candidates.firstIndex(where: { $0.id == user.id }) {
+            candidates[idx] = user
+        }
+    }
+    
+    /// Verifica e expira automaticamente entrevistas cujo prazo passou
+    func checkAndExpireAppointments() {
+        let now = Date()
+        for i in appointments.indices {
+            if appointments[i].status == .pending && now > appointments[i].deadlineDate {
+                appointments[i].status = .expired
+                
+                let appt = appointments[i]
+                let targetConvId = appt.conversationId ?? conversations.first(where: { $0.jobId == appt.jobId && $0.candidateId == appt.candidateId })?.id
+                if let convId = targetConvId {
+                    sendMessage(conversationId: convId, text: "⚠️ O prazo de resposta para a entrevista de \(appt.jobTitle) expirou. O horário foi liberado para outros candidatos.")
+                }
+            }
         }
     }
     
@@ -766,6 +912,51 @@ class JobTinderViewModel: ObservableObject {
             ]
         )
         self.conversations = [initialChat]
+        
+        // MARK: - 5. Mock Inicial de Entrevistas na Agenda (com Google Agenda e SLA de Resposta)
+        let calendar = Calendar.current
+        let tomorrow14h30 = calendar.date(bySettingHour: 14, minute: 30, second: 0, of: Date().addingTimeInterval(86400)) ?? Date().addingTimeInterval(86400)
+        let in3Days10h = calendar.date(bySettingHour: 10, minute: 0, second: 0, of: Date().addingTimeInterval(86400 * 3)) ?? Date().addingTimeInterval(86400 * 3)
+        
+        let initialAppt1 = InterviewAppointment(
+            id: UUID(uuidString: "dddddddd-1111-2222-3333-444444444441")!,
+            conversationId: initialChat.id,
+            jobId: job1.id,
+            jobTitle: job1.title,
+            companyId: companyIdCocoa,
+            companyName: "Cocoa Apps Studio",
+            candidateId: mockCandidateId,
+            candidateName: mockCandidate.name,
+            scheduledDate: tomorrow14h30,
+            durationMinutes: 45,
+            meetingLink: "https://meet.google.com/ember-cocoa-swiftui",
+            locationOrPlatform: "Google Meet",
+            notes: "Alinhamento técnico e apresentação do time de iOS.",
+            status: .pending,
+            deadlineDate: Date().addingTimeInterval(3600 * 20), // 20 horas restantes
+            createdAt: Date().addingTimeInterval(-3600 * 4)
+        )
+        
+        let initialAppt2 = InterviewAppointment(
+            id: UUID(uuidString: "dddddddd-1111-2222-3333-444444444442")!,
+            conversationId: nil,
+            jobId: job2.id,
+            jobTitle: job2.title,
+            companyId: companyIdNuTech,
+            companyName: "NuTech Solutions",
+            candidateId: mockCandidateId,
+            candidateName: mockCandidate.name,
+            scheduledDate: in3Days10h,
+            durationMinutes: 60,
+            meetingLink: "https://meet.google.com/nutech-swift-tech",
+            locationOrPlatform: "Google Meet",
+            notes: "Entrevista com Tech Lead e Gestor de Engenharia.",
+            status: .confirmed,
+            deadlineDate: Date().addingTimeInterval(-3600),
+            createdAt: Date().addingTimeInterval(-86400)
+        )
+        
+        self.appointments = [initialAppt1, initialAppt2]
         
         sortJobsByRelevance()
     }

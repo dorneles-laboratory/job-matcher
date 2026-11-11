@@ -7,7 +7,7 @@
 	objects = {
 
 /* Begin PBXFileReference section */
-		67909B3A30A27BA500A1FF30 /* EMBER.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EMBER.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		6726A96A30A522EA0036A277 /* EMBER.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = EMBER.app; sourceTree = BUILT_PRODUCTS_DIR; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
@@ -33,6 +33,7 @@
 			isa = PBXGroup;
 			children = (
 				67909B3C30A27BA500A1FF30 /* EMBER */,
+				6726A96A30A522EA0036A277 /* EMBER.app */,
 			);
 			sourceTree = "<group>";
 		};
@@ -58,7 +59,7 @@
 			packageProductDependencies = (
 			);
 			productName = EMBER;
-			productReference = 67909B3A30A27BA500A1FF30 /* EMBER.app */;
+			productReference = 6726A96A30A522EA0036A277 /* EMBER.app */;
 			productType = "com.apple.product-type.application";
 		};
 /* End PBXNativeTarget section */

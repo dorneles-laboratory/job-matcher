@@ -72,6 +72,7 @@ struct ChatDetailView: View {
     let conversation: MatchConversation
     @State private var messageText = ""
     @State private var showCompanyInfo = false
+    @State private var showScheduleSheet = false
     
     var currentMessages: [ChatMessage] {
         vm.conversations.first(where: { $0.id == conversation.id })?.messages ?? conversation.messages
@@ -79,6 +80,13 @@ struct ChatDetailView: View {
     
     var matchedCompany: UserProfile? {
         vm.getCompany(by: conversation.companyId) ?? vm.getCompany(byName: conversation.companyName)
+    }
+    
+    var activeAppointment: InterviewAppointment? {
+        vm.appointments.first { appt in
+            (appt.conversationId == conversation.id || (appt.jobId == conversation.jobId && appt.candidateId == conversation.candidateId)) &&
+            (appt.effectiveStatus == .pending || appt.effectiveStatus == .confirmed)
+        }
     }
     
     var body: some View {
@@ -142,6 +150,12 @@ struct ChatDetailView: View {
             
             Divider()
             
+            // Banner de Entrevista Ativa ou Proposta na conversa
+            if let appt = activeAppointment {
+                ActiveAppointmentBannerView(appointment: appt)
+                Divider()
+            }
+            
             // Mensagens
             ScrollViewReader { proxy in
                 ScrollView {
@@ -197,11 +211,29 @@ struct ChatDetailView: View {
             .padding()
         }
         .navigationBarTitleDisplayMode(.inline)
+        .toolbar {
+            ToolbarItem(placement: .navigationBarTrailing) {
+                Button {
+                    showScheduleSheet = true
+                } label: {
+                    Image(systemName: "calendar.badge.plus")
+                        .foregroundColor(.appPurple)
+                }
+            }
+        }
         .sheet(isPresented: $showCompanyInfo) {
             CompanyContactInfoSheet(
                 company: matchedCompany,
                 fallbackName: conversation.companyName,
                 jobTitle: conversation.jobTitle
+            )
+        }
+        .sheet(isPresented: $showScheduleSheet) {
+            ScheduleInterviewSheet(
+                preselectedCandidate: vm.getCandidate(by: conversation.candidateId),
+                preselectedJobId: conversation.jobId,
+                preselectedJobTitle: conversation.jobTitle,
+                conversationId: conversation.id
             )
         }
     }

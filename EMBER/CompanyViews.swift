@@ -1,6 +1,8 @@
 import SwiftUI
 
 struct CompanyMainTabView: View {
+    @EnvironmentObject var vm: JobTinderViewModel
+    
     var body: some View {
         TabView {
             CompanyCandidateSwipeView()
@@ -8,6 +10,9 @@ struct CompanyMainTabView: View {
             
             CompanyJobsManagementView()
                 .tabItem { Label("Minhas Vagas", systemImage: "doc.badge.plus") }
+            
+            AgendaView()
+                .tabItem { Label("Agenda", systemImage: "calendar") }
             
             ChatListView()
                 .tabItem { Label("Chat", systemImage: "bubble.left.and.bubble.right.fill") }
